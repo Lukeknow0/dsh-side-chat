@@ -1,4 +1,4 @@
-import { c as SendSideChatRequest, h as StartSideChatResult, i as CloseSideChatResult, l as SendSideChatResult, m as StartSideChatRequest, n as CancelSideChatResult, o as ReadSideChatRequest, r as CloseSideChatRequest, s as ReadSideChatResult, t as CancelSideChatRequest } from "./remote-C2q_fsSd.js";
+import { c as SendSideChatRequest, h as StartSideChatResult, i as CloseSideChatResult, l as SendSideChatResult, m as StartSideChatRequest, n as CancelSideChatResult, o as ReadSideChatRequest, r as CloseSideChatRequest, s as ReadSideChatResult, t as CancelSideChatRequest } from "./remote-NyT4slHF.js";
 import { RemoteResult, TypertRemoteContribution } from "@deepseek-ai/dsh-typert-protocol";
 //#region src/client/remote.d.ts
 interface SideChatRemoteNamespace {

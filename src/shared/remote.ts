@@ -20,6 +20,7 @@ export const startSideChatValueSchema = z.object({
   childSessionId: z.string(),
   chatToken: z.string().uuid(),
   seedLength: z.number().int().nonnegative(),
+  expiresAt: z.number().int().positive(),
   cleanupMode: z.enum(['archive-on-close', 'runtime-only']),
 }).strict()
 export type StartSideChatValue = z.infer<typeof startSideChatValueSchema>
@@ -42,6 +43,7 @@ export const readSideChatResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), value: z.object({
     chatToken: z.string().uuid(),
     revision: z.number().int().nonnegative(),
+    expiresAt: z.number().int().positive(),
     messages: z.array(sideChatTranscriptMessageSchema),
     partial: z.string(),
     running: z.boolean(),

@@ -28,11 +28,13 @@
 
 Long coding conversations accumulate decisions, plans, and in-flight work. A small clarification can pull the main agent away from that trajectory. Side Chat gives the clarification its own child runtime while keeping the parent visible and independent.
 
-- **One-click drawer:** additive header action plus a responsive right-side overlay.
+- **One-click drawer:** additive header action plus a responsive overlay that chooses a full rail, compact rail, or bottom sheet.
+- **Collision-aware placement:** measures the rendered AppFrame, native sidebar/details, sibling overlays, and marked portal controls without replacing a native slot.
 - **Context inheritance:** forks only through the latest completed `turn/end`, never through a half-finished turn.
 - **Parent independence:** the main conversation keeps running and receives no report or follow-up from the child.
 - **Read-only by construction:** sandbox mode, approval policy, model-visible allowlist, and an execution-time deny-by-default guard.
-- **Immediate UI cleanup:** closing invalidates client callbacks first, cancels creation or generation, disposes the live child, and attempts archive cleanup.
+- **Per-task retention:** switching conversations parks the Side Chat instead of deleting it; returning restores the transcript and live child.
+- **Explicit lifecycle:** visible or generating chats stay alive; close ends immediately, while 30 minutes parked and idle triggers Host-owned cleanup.
 - **Live transcript:** the Host projects only child-local messages while the drawer uses an adaptive 220–700 ms refresh loop.
 - **English and Chinese UI:** follows the active Harness locale.
 - **Keyboard friendly:** press `Cmd/Ctrl + Shift + .` to open or close.
@@ -67,10 +69,11 @@ pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-chat
 
 1. Finish at least one turn in a normal parent conversation.
 2. Select **Side Chat** in the conversation header, or press `Cmd/Ctrl + Shift + .`.
-3. Ask a focused side question. The drawer can inspect inherited context and read-only resources.
-4. Close the drawer with the close button, Escape, the shortcut, or the header action.
+3. Ask a focused side question. The drawer can inspect inherited context and read-only resources. Its placement adapts without remounting when panels or the viewport change.
+4. Switch tasks freely: the drawer is parked by parent and reappears with its transcript when you return.
+5. Close the drawer with the close button, Escape, the shortcut, or the header action when you want to end that Side Chat.
 
-Opening a different parent conversation automatically closes the active Side Chat. One Side Chat can be active for a parent at a time.
+A parent can own one retained Side Chat at a time. Visible drawers and actively generating children do not consume the lease. After the drawer is parked or detached and the child is idle, the Host keeps it for 30 minutes. Explicit close ends it immediately. Reloading the page can reattach to the retained Host conversation when you open Side Chat again.
 
 ## Safety model
 
@@ -87,7 +90,7 @@ The tool guard is the final authority. Adding a new tool to Harness does not sil
 
 ### Important cleanup disclosure
 
-**Temporary does not mean guaranteed physical erasure on DSH 0.1.0-rc.7.** That release exposes no public API for deleting a durable session log. On close, this plugin:
+**Temporary does not mean guaranteed physical erasure on DSH 0.1.0-rc.7.** That release exposes no public API for deleting a durable session log. On explicit close or idle expiry, this plugin:
 
 1. removes client admission and ignores late callbacks;
 2. aborts a pending start or cancels active work;
@@ -119,6 +122,10 @@ sequenceDiagram
   D->>H: send(chatToken, question)
   H->>C: Agent.followup(message)
   Note over P,C: Parent and child run independently
+  U->>D: Switch parent task
+  D->>D: Park drawer state by parent
+  Note over D,H: Visible/running stays alive; parked + idle gets 30 min
+  U->>D: Return to parent and restore transcript
   U->>D: Close
   D->>H: close(chatToken)
   H->>C: abort, cancel, dispose, archive
@@ -175,7 +182,7 @@ The drawer itself uses official DSH tokens and primitives, so it follows the act
 
 ## Status
 
-This is an MVP and the public API surface may evolve before 1.0. The intended invariants are stable: safe completed-turn fork, no writes, no parent mutation, one owner per drawer, and cleanup on close.
+This is an MVP and the public API surface may evolve before 1.0. The intended invariants are stable: safe completed-turn fork, no writes, no parent mutation, one retained Side Chat per parent, task-switch restoration, and cleanup on explicit close or idle expiry.
 
 ## License and attribution
 

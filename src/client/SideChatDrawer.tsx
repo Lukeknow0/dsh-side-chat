@@ -9,6 +9,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SideChatController } from './controller.ts'
 import { NS } from './locales.ts'
 import { SideChatSign } from './SideChatSign.tsx'
+import { overlayPlacementStyle, useOverlayPlacement } from './use-overlay-placement.ts'
 import css from './side-chat.module.css'
 
 export interface SideChatDrawerInjected { controller: SideChatController }
@@ -30,6 +31,8 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
   const [sendError, setSendError] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const placementRootRef = useRef<HTMLDivElement>(null)
+  const placement = useOverlayPlacement(placementRootRef, { enabled: state.phase !== 'closed' })
 
   const messages = state.messages
   const partial = state.partial
@@ -73,9 +76,22 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
   }
 
   return (
-    <>
-      <button className={css.mobileScrim} aria-label={t('drawer.close')} onClick={() => { void controller.close() }} />
-      <aside className={css.drawer} role="complementary" aria-label={t('drawer.title')}>
+    <div
+      ref={placementRootRef}
+      className={css.placementRoot}
+      data-dsh-side-chat-root
+      data-placement-mode={placement.mode}
+      data-placement-degraded={placement.degraded || undefined}
+      style={overlayPlacementStyle(placement)}
+    >
+      <span className={css.safeAreaProbe} data-dsh-side-chat-safe-area aria-hidden="true" />
+      <button
+        className={css.mobileScrim}
+        data-dsh-side-chat-scrim
+        aria-label={t('drawer.close')}
+        onClick={() => { void controller.close() }}
+      />
+      <aside className={css.drawer} data-dsh-side-chat-drawer role="complementary" aria-label={t('drawer.title')}>
         <header className={css.drawerHeader}>
           <div className={css.titleCluster}>
             <SideChatSign className={css.railMark} />
@@ -108,9 +124,11 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
           {state.phase === 'error' && (
             <div className={css.errorState}>
               <span className={css.errorRule} />
-              <strong>{t('drawer.error')}</strong>
-              <p>{state.error}</p>
-              <Button size="sm" variant="outline" onClick={() => { void controller.retry() }}>{t('drawer.retry')}</Button>
+              <strong>{state.errorKind === 'expired' ? t('drawer.expiredTitle') : t('drawer.error')}</strong>
+              <p>{state.errorKind === 'expired' ? t('drawer.expiredBody') : state.error}</p>
+              <Button size="sm" variant="outline" onClick={() => { void controller.retry() }}>
+                {state.errorKind === 'expired' ? t('drawer.restart') : t('drawer.retry')}
+              </Button>
             </div>
           )}
           {state.phase === 'open' && messages.length === 0 && partial === '' && !running && (
@@ -170,6 +188,6 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
           </footer>
         )}
       </aside>
-    </>
+    </div>
   )
 }

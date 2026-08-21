@@ -13,7 +13,7 @@ describe('Side Chat remote schemas', () => {
   it('accepts a strict start round trip', () => {
     expect(startSideChatRequestSchema.parse({ parentSessionId: 'parent', chatToken: token })).toEqual({ parentSessionId: 'parent', chatToken: token })
     expect(startSideChatResultSchema.parse({ ok: true, value: {
-      parentSessionId: 'parent', childSessionId: 'child', chatToken: token, seedLength: 12, cleanupMode: 'archive-on-close',
+      parentSessionId: 'parent', childSessionId: 'child', chatToken: token, seedLength: 12, expiresAt: Date.now() + 1_000, cleanupMode: 'archive-on-close',
     } }).ok).toBe(true)
   })
 
@@ -25,7 +25,7 @@ describe('Side Chat remote schemas', () => {
   it('validates host-projected transcript snapshots', () => {
     expect(readSideChatRequestSchema.parse({ chatToken: token }).chatToken).toBe(token)
     const result = readSideChatResultSchema.parse({ ok: true, value: {
-      chatToken: token, revision: 18, running: true, partial: 'Working',
+      chatToken: token, revision: 18, expiresAt: Date.now() + 1_000, running: true, partial: 'Working',
       messages: [{ id: 'm1', role: 'user', text: 'Why?' }],
     } })
     expect(result.ok && result.value.messages).toHaveLength(1)

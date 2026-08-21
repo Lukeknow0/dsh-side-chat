@@ -35,6 +35,7 @@ declare const startSideChatValueSchema: z.ZodObject<{
   childSessionId: z.ZodString;
   chatToken: z.ZodString;
   seedLength: z.ZodNumber;
+  expiresAt: z.ZodNumber;
   cleanupMode: z.ZodEnum<{
     "archive-on-close": "archive-on-close";
     "runtime-only": "runtime-only";
@@ -48,6 +49,7 @@ declare const startSideChatResultSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     childSessionId: z.ZodString;
     chatToken: z.ZodString;
     seedLength: z.ZodNumber;
+    expiresAt: z.ZodNumber;
     cleanupMode: z.ZodEnum<{
       "archive-on-close": "archive-on-close";
       "runtime-only": "runtime-only";
@@ -88,6 +90,7 @@ declare const readSideChatResultSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   value: z.ZodObject<{
     chatToken: z.ZodString;
     revision: z.ZodNumber;
+    expiresAt: z.ZodNumber;
     messages: z.ZodArray<z.ZodObject<{
       id: z.ZodString;
       role: z.ZodEnum<{

@@ -40,13 +40,60 @@ const SIDE_CHAT_PERSONA = 'You are in a temporary side conversation, separate fr
 
 const SIDE_CHAT_BOUNDARY = 'Side conversation boundary. Everything before this message is inherited history from the parent thread and is reference context only, not your current task. Do not continue any earlier plan, edit, command, approval, or tool call. Only direct user messages after this boundary are active instructions. This conversation is read-only.'
 
+export const SIDE_CHAT_IDLE_TTL_MS = 30 * 60 * 1_000
+
+export interface SideChatLeaseInput {
+  now: number
+  expiresAt: number
+  wasRunning: boolean
+  running: boolean
+}
+
+export interface SideChatLeaseDecision {
+  expiresAt: number
+  running: boolean
+  expire: boolean
+  delay: number
+}
+
+export function evaluateSideChatLease(input: SideChatLeaseInput): SideChatLeaseDecision {
+  if (input.running) {
+    return {
+      expiresAt: input.now + SIDE_CHAT_IDLE_TTL_MS,
+      running: true,
+      expire: false,
+      delay: 1_000,
+    }
+  }
+  if (input.wasRunning) {
+    return {
+      expiresAt: input.now + SIDE_CHAT_IDLE_TTL_MS,
+      running: false,
+      expire: false,
+      delay: SIDE_CHAT_IDLE_TTL_MS,
+    }
+  }
+  if (input.expiresAt <= input.now) {
+    return { expiresAt: input.expiresAt, running: false, expire: true, delay: 0 }
+  }
+  return {
+    expiresAt: input.expiresAt,
+    running: false,
+    expire: false,
+    delay: Math.max(1, input.expiresAt - input.now),
+  }
+}
+
 interface LiveSideChat {
-  readonly chatToken: string
+  chatToken: string
   readonly parentSessionId: string
   readonly childSessionId: SessionId
   readonly seedLength: number
   readonly abort: AbortController
   readonly sentRequests: Map<string, string>
+  expiresAt: number
+  expiryTimer: ReturnType<typeof setTimeout> | undefined
+  leaseRunning: boolean
   handle?: AgentHandle
   creation?: Promise<AgentHandle>
   closing: boolean
@@ -115,6 +162,7 @@ function transcript(entry: LiveSideChat): Extract<ReadSideChatResult, { ok: true
   const value = {
     chatToken: entry.chatToken,
     revision: events.at(-1)?.seq ?? entry.seedLength,
+    expiresAt: entry.expiresAt,
     messages, partial,
     running: entry.handle?.agent.status === 'running',
     ...(entry.handle?.agent.status === 'running' && runningTool !== undefined ? { runningTool } : {}),
@@ -140,10 +188,32 @@ export class SideChatService extends TypertRemoteService {
 
   async start(request: StartSideChatRequest): Promise<StartSideChatResult> {
     const duplicate = this.byToken.get(request.chatToken)
-    if (duplicate?.handle !== undefined) return this.startValue(duplicate)
+    if (duplicate !== undefined && !duplicate.closing) {
+      const handle = duplicate.handle ?? await duplicate.creation?.catch(() => undefined)
+      if (handle !== undefined && !duplicate.closing) {
+        duplicate.handle = handle
+        this.touch(duplicate)
+        return this.startValue(duplicate)
+      }
+      if (this.byToken.get(request.chatToken) === duplicate) {
+        return failure('already-open', 'This Side Chat is still opening.')
+      }
+    }
     const existingToken = this.tokenByParent.get(request.parentSessionId)
     if (existingToken !== undefined && existingToken !== request.chatToken) {
-      return failure('already-open', 'This conversation already has an open Side Chat.')
+      const existing = this.byToken.get(existingToken)
+      if (existing !== undefined && !existing.closing) {
+        const handle = existing.handle ?? await existing.creation?.catch(() => undefined)
+        if (handle !== undefined && !existing.closing) {
+          existing.handle = handle
+          this.adoptToken(existing, request.chatToken)
+          this.touch(existing)
+          return this.startValue(existing)
+        }
+      }
+      if (this.tokenByParent.get(request.parentSessionId) === existingToken) {
+        this.tokenByParent.delete(request.parentSessionId)
+      }
     }
 
     const parentId = SessionId(request.parentSessionId)
@@ -162,10 +232,14 @@ export class SideChatService extends TypertRemoteService {
       seedLength: seed.length,
       abort: new AbortController(),
       sentRequests: new Map(),
+      expiresAt: Date.now() + SIDE_CHAT_IDLE_TTL_MS,
+      expiryTimer: undefined,
+      leaseRunning: false,
       closing: false,
     }
     this.byToken.set(request.chatToken, entry)
     this.tokenByParent.set(request.parentSessionId, request.chatToken)
+    this.scheduleExpiry(entry)
 
     try {
       const childDepth = resolveChildDepth(parent, undefined)
@@ -190,7 +264,7 @@ export class SideChatService extends TypertRemoteService {
       })
       entry.creation = creation
       const handle = await creation
-      if (entry.closing || this.byToken.get(request.chatToken) !== entry) {
+      if (entry.closing || this.byToken.get(entry.chatToken) !== entry) {
         await handle.dispose()
         return failure('cancelled', 'Side Chat was closed before it finished opening.')
       }
@@ -201,7 +275,7 @@ export class SideChatService extends TypertRemoteService {
       }))
       return this.startValue(entry)
     } catch (error: unknown) {
-      this.forget(request.chatToken)
+      this.forget(entry.chatToken)
       if (entry.abort.signal.aborted || entry.closing) return failure('cancelled', 'Side Chat opening was cancelled.')
       const message = errorText(error)
       const code: SideChatErrorCode = message.includes('tool') || message.includes('factory')
@@ -216,6 +290,9 @@ export class SideChatService extends TypertRemoteService {
     if (entry === undefined || entry.closing || entry.handle === undefined) {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
+    // Adaptive transcript reads are the client attachment heartbeat. Visible
+    // drawers keep their child alive; parking stops reads and starts the lease.
+    this.touch(entry)
     return { ok: true, value: transcript(entry) }
   }
 
@@ -225,6 +302,7 @@ export class SideChatService extends TypertRemoteService {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
     const existing = entry.sentRequests.get(request.requestId)
+    this.touch(entry)
     if (existing !== undefined) {
       return {
         ok: true,
@@ -240,6 +318,7 @@ export class SideChatService extends TypertRemoteService {
     const message = createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
     entry.sentRequests.set(request.requestId, String(message.id))
     entry.handle.agent.followup(message)
+    this.scheduleExpiry(entry)
     return {
       ok: true,
       value: {
@@ -254,6 +333,7 @@ export class SideChatService extends TypertRemoteService {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
     entry.handle.agent.cancel({ kind: 'user' })
+    this.touch(entry)
     return { ok: true, value: { chatToken: request.chatToken, accepted: true } }
   }
 
@@ -264,7 +344,7 @@ export class SideChatService extends TypertRemoteService {
     }
     entry.closing = true
     entry.abort.abort()
-    this.forget(request.chatToken)
+    this.forget(entry.chatToken)
 
     try {
       const handle = entry.handle ?? await entry.creation?.catch(() => undefined)
@@ -308,14 +388,52 @@ export class SideChatService extends TypertRemoteService {
         childSessionId: String(entry.childSessionId),
         chatToken: entry.chatToken,
         seedLength: entry.seedLength,
+        expiresAt: entry.expiresAt,
         cleanupMode: this.ctx.get('workspaceRegistry') === undefined ? 'runtime-only' : 'archive-on-close',
       },
     }
   }
 
+  private adoptToken(entry: LiveSideChat, chatToken: string): void {
+    if (entry.chatToken === chatToken) return
+    this.byToken.delete(entry.chatToken)
+    entry.chatToken = chatToken
+    this.byToken.set(chatToken, entry)
+    this.tokenByParent.set(entry.parentSessionId, chatToken)
+  }
+
+  private touch(entry: LiveSideChat): void {
+    entry.expiresAt = Date.now() + SIDE_CHAT_IDLE_TTL_MS
+    this.scheduleExpiry(entry)
+  }
+
+  private scheduleExpiry(entry: LiveSideChat): void {
+    if (entry.expiryTimer !== undefined) clearTimeout(entry.expiryTimer)
+    if (entry.closing || this.byToken.get(entry.chatToken) !== entry) return
+
+    const decision = evaluateSideChatLease({
+      now: Date.now(),
+      expiresAt: entry.expiresAt,
+      wasRunning: entry.leaseRunning,
+      running: entry.handle?.agent.status === 'running',
+    })
+    entry.expiresAt = decision.expiresAt
+    entry.leaseRunning = decision.running
+    if (decision.expire) {
+      void this.close({ chatToken: entry.chatToken })
+      return
+    }
+    entry.expiryTimer = setTimeout(() => {
+      entry.expiryTimer = undefined
+      this.scheduleExpiry(entry)
+    }, decision.delay)
+  }
+
   private forget(chatToken: string): void {
     const entry = this.byToken.get(chatToken)
     if (entry === undefined) return
+    if (entry.expiryTimer !== undefined) clearTimeout(entry.expiryTimer)
+    entry.expiryTimer = undefined
     this.byToken.delete(chatToken)
     if (this.tokenByParent.get(entry.parentSessionId) === chatToken) {
       this.tokenByParent.delete(entry.parentSessionId)
@@ -327,6 +445,8 @@ export class SideChatService extends TypertRemoteService {
     this.byToken.clear()
     this.tokenByParent.clear()
     await Promise.allSettled(entries.map(async entry => {
+      if (entry.expiryTimer !== undefined) clearTimeout(entry.expiryTimer)
+      entry.expiryTimer = undefined
       entry.closing = true
       entry.abort.abort()
       const handle = entry.handle ?? await entry.creation?.catch(() => undefined)

@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { completedTurnSeed } from '../src/host/side-chat-service.ts'
+import { completedTurnSeed, SIDE_CHAT_IDLE_TTL_MS } from '../src/host/side-chat-service.ts'
 
 function event(seq: number, type: string): SessionEvent {
   return { seq, time: seq, type, data: {} } as unknown as SessionEvent
 }
+
+describe('Side Chat retention policy', () => {
+  it('uses a thirty-minute parked-and-idle lease', () => {
+    expect(SIDE_CHAT_IDLE_TTL_MS).toBe(30 * 60 * 1_000)
+  })
+})
 
 describe('completedTurnSeed', () => {
   it('returns the balanced prefix through the last completed turn', () => {
