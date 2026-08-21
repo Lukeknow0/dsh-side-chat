@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import random
+import shutil
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,10 @@ MUTED = "#969B98"
 DIN = "/System/Library/Fonts/Supplemental/DIN Condensed Bold.ttf"
 SF = "/System/Library/Fonts/SFNS.ttf"
 MONO = "/System/Library/Fonts/SFNSMono.ttf"
+
+SIGN_WIDTH = 48
+SIGN_HEIGHT = 24
+SIGN_STROKE = 4
 
 
 def font(path: str, size: int) -> ImageFont.FreeTypeFont:
@@ -35,14 +40,36 @@ def add_noise(image: Image.Image, amount: int = 7, seed: int = 41) -> None:
         px[x, y] = tuple(max(0, min(255, c + delta)) for c in (r, g, b))
 
 
-def rail_mark(draw: ImageDraw.ImageDraw, x: int, y: int, scale: int = 1) -> None:
-    white = 11 * scale
-    gap = 18 * scale
-    radius = 6 * scale
-    draw.rounded_rectangle((x, y, x + 240 * scale, y + white), radius=radius, fill=PAPER)
-    draw.rounded_rectangle((x, y + gap, x + 136 * scale, y + gap + white), radius=radius, fill=PAPER)
-    draw.rounded_rectangle((x + 128 * scale, y + gap, x + 188 * scale, y + gap + 68 * scale), radius=28 * scale, fill=MINT)
-    draw.rounded_rectangle((x + 180 * scale, y + gap + 57 * scale, x + 240 * scale, y + gap + 68 * scale), radius=radius, fill=MINT)
+def cubic_point(t: float) -> tuple[float, float]:
+    mt = 1 - t
+    x = mt**3 * 25 + 3 * mt**2 * t * 29 + 3 * mt * t**2 * 30 + t**3 * 35
+    y = mt**3 * 14 + 3 * mt**2 * t * 14 + 3 * mt * t**2 * 20 + t**3 * 20
+    return x, y
+
+
+def round_cap(draw: ImageDraw.ImageDraw, point: tuple[float, float], stroke: int, fill: str) -> None:
+    radius = stroke / 2
+    x, y = point
+    draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
+
+
+def draw_sign(draw: ImageDraw.ImageDraw, x: int, y: int, width: int, neutral: str) -> None:
+    scale = width / SIGN_WIDTH
+    stroke = max(2, round(SIGN_STROKE * scale))
+    # ImageDraw leaves one-pixel seams between fractional curve segments. Snap
+    # sampling coordinates to its integer raster grid before connecting them.
+    point = lambda px, py: (round(x + px * scale), round(y + py * scale))
+    top = [point(4, 6), point(44, 6)]
+    lower_neutral = [point(4, 14), point(25, 14)]
+    lower_mint = [point(*cubic_point(index / 24)) for index in range(25)]
+    lower_mint.append(point(44, 20))
+    draw.line(top, fill=neutral, width=stroke)
+    draw.line(lower_neutral, fill=neutral, width=stroke)
+    draw.line(lower_mint, fill=MINT, width=stroke, joint="curve")
+    round_cap(draw, top[0], stroke, neutral)
+    round_cap(draw, top[-1], stroke, neutral)
+    round_cap(draw, lower_neutral[0], stroke, neutral)
+    round_cap(draw, lower_mint[-1], stroke, MINT)
 
 
 def crop_surface() -> Image.Image:
@@ -64,7 +91,7 @@ def render_hero(size: tuple[int, int], output: str) -> None:
     draw.line((divider, 0, divider, height), fill=LINE, width=max(1, width // 1600))
 
     unit = width / 2400
-    rail_mark(draw, margin, round(110 * unit), max(1, round(unit)))
+    draw_sign(draw, margin, round(104 * unit), round(240 * unit), PAPER)
     draw.text((margin, round(245 * unit)), "DSH", font=font(DIN, round(184 * unit)), fill=PAPER)
     draw.text((margin + round(275 * unit), round(276 * unit)), "SIDE CHAT", font=font(MONO, round(49 * unit)), fill=PAPER, spacing=4)
 
@@ -108,15 +135,68 @@ def render_hero(size: tuple[int, int], output: str) -> None:
     image.save(ASSETS / output, optimize=True)
 
 
-def render_crops() -> None:
+def render_construction_panel() -> Image.Image:
+    width, height = 432, 490
+    image = Image.new("RGB", (width, height), INK)
+    add_noise(image, amount=4, seed=43)
+    draw = ImageDraw.Draw(image)
+
+    draw.text((38, 39), "SYMBOL CONSTRUCTION", font=font(MONO, 13), fill=PAPER)
+
+    sign_x, sign_y, sign_width = 76, 149, 280
+    scale = sign_width / SIGN_WIDTH
+    grid_left = sign_x
+    grid_x = (sign_x, sign_x + 12 * scale, sign_x + 36 * scale, sign_x + SIGN_WIDTH * scale)
+    grid_top = sign_y
+    grid_bottom = sign_y + SIGN_HEIGHT * scale
+    guide = "#3C423F"
+    dimension = "#687365"
+
+    for guide_x in grid_x:
+        draw.line((guide_x, grid_top, guide_x, grid_bottom), fill=guide, width=1)
+    for guide_y in (grid_top, sign_y + 6 * scale, sign_y + 14 * scale, sign_y + 20 * scale, grid_bottom):
+        draw.line((grid_left, guide_y, grid_x[-1], guide_y), fill=guide, width=1)
+
+    dimension_y = sign_y - 16
+    for start, end, label in zip(grid_x, grid_x[1:], ("X", "2X", "X")):
+        draw.line((start, dimension_y, end, dimension_y), fill=dimension, width=1)
+        draw.line((start, dimension_y - 4, start, dimension_y + 4), fill=dimension, width=1)
+        draw.line((end, dimension_y - 4, end, dimension_y + 4), fill=dimension, width=1)
+        box = draw.textbbox((0, 0), label, font=font(MONO, 13))
+        draw.text(((start + end - (box[2] - box[0])) / 2, dimension_y - 25), label, font=font(MONO, 13), fill=MINT)
+
+    draw_sign(draw, sign_x, sign_y, sign_width, PAPER)
+    draw.text(
+        (38, 382),
+        "Two parallel lanes. One short branch.\nContext diverges briefly; the parent keeps moving.",
+        font=font(MONO, 12),
+        fill=PAPER,
+        spacing=6,
+    )
+    return image
+
+
+def patch_brand_board(construction: Image.Image) -> None:
+    board = Image.open(ASSETS / "brand-board.png").convert("RGB")
+    draw = ImageDraw.Draw(board)
+    draw.rectangle((58, 200, 402, 355), fill=INK)
+    draw_sign(draw, 68, 220, 296, PAPER)
+    board.paste(construction, (0, 1046))
+    board.save(ASSETS / "brand-board.png", optimize=True)
+
+
+def render_crops(construction: Image.Image) -> None:
     crop_surface().save(ASSETS / "concept-surface.png", optimize=True)
     BOARD.crop((432, 678, 1024, 1046)).save(ASSETS / "campaign-statement.png", optimize=True)
-    BOARD.crop((0, 1046, 432, 1536)).save(ASSETS / "symbol-construction.png", optimize=True)
+    construction.save(ASSETS / "symbol-construction.png", optimize=True)
 
 
 if __name__ == "__main__":
     ASSETS.mkdir(parents=True, exist_ok=True)
-    render_hero((2400, 1350), "hero.png")
+    construction = render_construction_panel()
+    patch_brand_board(construction)
+    render_hero((2400, 1350), "hero-dark.png")
+    shutil.copyfile(ASSETS / "hero-dark.png", ASSETS / "hero.png")
     render_hero((1200, 630), "social-card.png")
-    render_crops()
-    print("Rendered hero.png, social-card.png, and supporting brand crops")
+    render_crops(construction)
+    print("Rendered hero-dark.png, hero.png, social-card.png, and supporting brand crops")
