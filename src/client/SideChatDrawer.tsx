@@ -8,6 +8,7 @@ import {
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SideChatController } from './controller.ts'
 import { NS } from './locales.ts'
+import { SideChatSign } from './SideChatSign.tsx'
 import css from './side-chat.module.css'
 
 export interface SideChatDrawerInjected { controller: SideChatController }
@@ -19,16 +20,6 @@ function useSessionSnapshot(face: SessionFace | undefined): Snapshot | null {
   const subscribe = useCallback((listener: () => void) => face?.subscribe(listener) ?? (() => {}), [face])
   const getSnapshot = useCallback(() => face?.getSnapshot() ?? null, [face])
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-}
-
-function RailMark() {
-  return (
-    <span className={css.railMark} aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </span>
-  )
 }
 
 export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
@@ -87,7 +78,7 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
       <aside className={css.drawer} role="complementary" aria-label={t('drawer.title')}>
         <header className={css.drawerHeader}>
           <div className={css.titleCluster}>
-            <RailMark />
+            <SideChatSign className={css.railMark} />
             <div>
               <div className={css.titleLine}>
                 <strong>{t('drawer.title')}</strong>
@@ -110,7 +101,7 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
         <div className={css.transcript} ref={scrollRef} aria-live="polite">
           {state.phase === 'starting' && (
             <div className={css.loadingState}>
-              <span className={css.loadingRails}><span /><span /><span /></span>
+              <SideChatSign className={css.loadingMark} />
               <strong>{t('drawer.opening')}</strong>
             </div>
           )}
@@ -124,7 +115,7 @@ export function SideChatDrawer({ controller, t }: SideChatDrawerProps) {
           )}
           {state.phase === 'open' && messages.length === 0 && partial === '' && !running && (
             <div className={css.emptyState}>
-              <RailMark />
+              <SideChatSign className={css.railMark} />
               <strong>{t('drawer.emptyTitle')}</strong>
               <p>{t('drawer.emptyBody')}</p>
             </div>

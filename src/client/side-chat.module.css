@@ -54,22 +54,17 @@
 .titleLine strong { font-size: 14px; font-weight: 620; letter-spacing: -.01em; }
 
 .railMark {
-  position: relative;
-  display: grid;
+  display: block;
   width: 28px;
   height: 28px;
   flex: none;
-  grid-template-columns: repeat(3, 2px);
-  place-content: center;
-  gap: 4px;
+  box-sizing: border-box;
+  padding: 6px;
   border: 1px solid color-mix(in srgb, #b7e85b 30%, var(--dsw-alias-border-l1));
   border-radius: 8px;
   background: color-mix(in srgb, #b7e85b 8%, transparent);
+  color: var(--dsw-alias-label-tertiary);
 }
-
-.railMark > span { width: 2px; height: 14px; border-radius: 2px; background: var(--dsw-alias-label-tertiary); }
-.railMark > span:nth-child(2) { height: 18px; background: #b7e85b; }
-.railMark > span:nth-child(3) { height: 10px; align-self: end; background: #e9705b; }
 
 .readOnlyBadge {
   padding: 2px 6px;
@@ -134,18 +129,18 @@
   align-items: flex-start;
   margin: 0 auto;
 }
-.emptyState .railMark { width: 42px; height: 42px; margin-bottom: 22px; grid-template-columns: repeat(3, 3px); gap: 6px; border-radius: 12px; }
-.emptyState .railMark > span { width: 3px; height: 20px; }
-.emptyState .railMark > span:nth-child(2) { height: 27px; }
-.emptyState .railMark > span:nth-child(3) { height: 15px; }
+.emptyState .railMark { width: 42px; height: 42px; margin-bottom: 22px; padding: 8px; border-radius: 12px; }
 .emptyState strong { max-width: 260px; font-size: 26px; font-weight: 560; letter-spacing: -.035em; line-height: 1.05; }
 .emptyState p { margin: 12px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 20px; }
 
 .loadingState { display: grid; min-height: 100%; flex: 1; place-content: center; justify-items: center; gap: 16px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
-.loadingRails { display: flex; height: 34px; align-items: end; gap: 5px; }
-.loadingRails span { display: block; width: 3px; height: 18px; border-radius: 3px; background: #b7e85b; animation: rail-pulse 900ms ease-in-out infinite alternate; }
-.loadingRails span:nth-child(2) { height: 30px; animation-delay: -300ms; }
-.loadingRails span:nth-child(3) { height: 23px; animation-delay: -600ms; background: #e9705b; }
+.loadingMark {
+  display: block;
+  width: 48px;
+  height: 24px;
+  color: var(--dsw-alias-label-tertiary);
+  animation: sign-pulse 900ms ease-in-out infinite alternate;
+}
 
 .errorState { max-width: 330px; margin: auto; }
 .errorRule { display: block; width: 44px; height: 3px; margin-bottom: 18px; background: #e9705b; }
@@ -175,7 +170,7 @@
 .sendError { margin: 0 2px 7px; color: var(--dsw-alias-state-error-primary); font-size: 11px; line-height: 16px; }
 
 @keyframes drawer-in { from { opacity: 0; transform: translateX(20px) scale(.99); } to { opacity: 1; transform: none; } }
-@keyframes rail-pulse { from { opacity: .32; transform: scaleY(.72); transform-origin: bottom; } to { opacity: 1; transform: scaleY(1); transform-origin: bottom; } }
+@keyframes sign-pulse { from { opacity: .32; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 720px) {
@@ -187,6 +182,6 @@
 @media (max-width: 980px) { .headerButtonLabel { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .drawer, .loadingRails span, .readingState svg { animation: none; }
+  .drawer, .loadingMark, .readingState svg { animation: none; }
   .transcript { scroll-behavior: auto; }
 }

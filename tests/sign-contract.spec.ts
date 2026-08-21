@@ -29,4 +29,14 @@ describe('Parallel Side Branch sign contract', () => {
       SIDE_CHAT_SIGN_LOWER_PATH,
     ])
   })
+
+  it('uses the canonical component on all drawer identity surfaces', async () => {
+    const drawer = await readFile(new URL('../src/client/SideChatDrawer.tsx', import.meta.url), 'utf8')
+    const styles = await readFile(new URL('../src/client/side-chat.module.css', import.meta.url), 'utf8')
+    expect(drawer).toContain("import { SideChatSign } from './SideChatSign.tsx'")
+    expect(drawer.match(/<SideChatSign\b/g)).toHaveLength(3)
+    expect(drawer).not.toContain('function RailMark')
+    expect(styles).not.toContain('.railMark > span')
+    expect(styles).not.toContain('.loadingRails span')
+  })
 })
