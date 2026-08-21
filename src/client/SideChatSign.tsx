@@ -6,7 +6,7 @@ export const SIDE_CHAT_SIGN_LOWER_PATH = 'M4 14H25C29 14 30 20 35 20H44'
 export const SIDE_CHAT_SIGN_CLIP_X = 25
 
 export interface SideChatSignProps {
-  className?: string
+  className?: string | undefined
   title?: string
 }
 
