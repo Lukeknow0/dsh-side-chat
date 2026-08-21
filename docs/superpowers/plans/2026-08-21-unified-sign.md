@@ -492,3 +492,39 @@ Expected: only the approved design spec, implementation plan, canonical sign, UI
 Push the completed descendant branch to `origin/main`, open the repository through `ego-browser`, and verify the README image `src` values and visible order. Use new filenames if any GitHub image cache still serves an old asset.
 
 Expected: the original dark hero appears first; the English overview remains below the introduction; both carry the same Parallel Side Branch sign.
+
+### Task 6: Replace every embedded legacy raster sign
+
+**Files:**
+- Modify: `scripts/render-brand-assets.py`
+- Modify: `tests/sign-contract.spec.ts`
+- Regenerate: `docs/assets/brand-board.png`
+- Regenerate: `docs/assets/hero-dark.png`, `docs/assets/hero.png`, `docs/assets/social-card.png`
+- Regenerate: `docs/assets/installed-overview-en.png`, `docs/assets/installed.png`
+
+**Purpose:** The final visual review found old sharp-fold variants inside the product-surface screenshots and the UI-system panel. Replace each of those embedded marks with the same canonical `draw_sign()` silhouette, then regenerate every README-facing derivative.
+
+- [x] **Step 1: Add a failing embedded-surface contract**
+
+Extend `tests/sign-contract.spec.ts` to require named deterministic raster patch routines for the product-surface signs, the UI-system/chip/app-icon signs, and all overview screenshot signs. The contract must also require that `crop_surface()` reads the freshly patched board, so Hero and social card cannot retain stale embedded marks.
+
+- [x] **Step 2: Patch brand-board embedded signs**
+
+Use only deterministic rectangular repaint regions and `draw_sign()`. Replace the old sharp-fold signs in the `PRODUCT SURFACE` drawer/header and assistant identity, plus the `UI SYSTEM` chip and app-icon treatments. Preserve all non-sign copy, layout, controls, and colour swatches. Every branch must remain visibly mint; where a mint tile would hide the branch, use a local neutral backing treatment while preserving the panel’s composition.
+
+- [x] **Step 3: Patch light-overview embedded signs**
+
+Replace the legacy signs inside the light product screenshot (toolbar button, drawer title, and assistant identity) in addition to the already-correct upper-left lockup. Preserve English text, controls, and layout; copy the active overview byte-for-byte to `installed.png` after rendering.
+
+- [x] **Step 4: Regenerate all derivatives and prove consistency**
+
+Run `python3 scripts/render-brand-assets.py`, then verify both aliases with `cmp`, inspect `brand-board.png`, `hero-dark.png`, `social-card.png`, and `installed-overview-en.png` at normal display scale, and run the focused contract. Confirm no old sharp-fold/circle/blob variant is still visible.
+
+- [x] **Step 5: Commit the exhaustive raster rollout**
+
+```bash
+git add docs/superpowers/plans/2026-08-21-unified-sign.md scripts/render-brand-assets.py tests/sign-contract.spec.ts \
+  docs/assets/brand-board.png docs/assets/hero-dark.png docs/assets/hero.png docs/assets/social-card.png \
+  docs/assets/installed-overview-en.png docs/assets/installed.png
+git commit -m "docs: unify embedded raster signs"
+```

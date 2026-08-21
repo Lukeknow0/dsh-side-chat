@@ -7,7 +7,6 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "docs" / "assets"
-BOARD = Image.open(ASSETS / "brand-board.png").convert("RGB")
 
 INK = "#0B0D0E"
 PAPER = "#F2F0E8"
@@ -72,9 +71,48 @@ def draw_sign(draw: ImageDraw.ImageDraw, x: int, y: int, width: int, neutral: st
     round_cap(draw, lower_mint[-1], stroke, MINT)
 
 
+def repaint_sign_region(
+    draw: ImageDraw.ImageDraw,
+    region: tuple[int, int, int, int],
+    background: str,
+    sign: tuple[int, int, int],
+    neutral: str,
+) -> None:
+    draw.rectangle(region, fill=background)
+    draw_sign(draw, *sign, neutral)
+
+
+def patch_product_surface_signs(board: Image.Image) -> None:
+    draw = ImageDraw.Draw(board)
+    product_background = "#0C0E0F"
+    repaint_sign_region(draw, (800, 148, 830, 175), product_background, (802, 151, 28), PAPER)
+    repaint_sign_region(draw, (800, 295, 826, 320), product_background, (801, 298, 25), PAPER)
+
+
+def patch_ui_system_signs(board: Image.Image) -> None:
+    draw = ImageDraw.Draw(board)
+    panel_background = "#111416"
+    repaint_sign_region(draw, (480, 1149, 535, 1187), panel_background, (484, 1154, 47), PAPER)
+    repaint_sign_region(draw, (480, 1291, 558, 1345), panel_background, (486, 1297, 66), PAPER)
+    # A dark local backing keeps the mint branch legible on the mint app tile.
+    repaint_sign_region(draw, (621, 1297, 699, 1337), INK, (627, 1297, 66), PAPER)
+    repaint_sign_region(draw, (761, 1291, 841, 1345), PAPER, (768, 1297, 66), INK)
+    repaint_sign_region(draw, (902, 1291, 982, 1345), panel_background, (909, 1297, 66), PAPER)
+
+
+def patch_installed_overview_signs(image: Image.Image) -> None:
+    draw = ImageDraw.Draw(image)
+    toolbar_background = "#FAFCF6"
+    drawer_background = "#F7F7F7"
+    repaint_sign_region(draw, (1378, 196, 1410, 219), toolbar_background, (1380, 198, 30), INK)
+    repaint_sign_region(draw, (1890, 188, 1945, 237), drawer_background, (1896, 197, 43), INK)
+    repaint_sign_region(draw, (1878, 545, 1905, 566), drawer_background, (1880, 547, 24), INK)
+
+
 def crop_surface() -> Image.Image:
     # The upper-right brand-board panel contains the art-directed product concept.
-    panel = BOARD.crop((432, 0, 1024, 678))
+    board = Image.open(ASSETS / "brand-board.png").convert("RGB")
+    panel = board.crop((432, 0, 1024, 678))
     panel = ImageEnhance.Contrast(panel).enhance(1.06)
     return panel
 
@@ -141,6 +179,7 @@ def render_installed_overview() -> None:
     background = image.getpixel((80, 140))
     draw.rectangle((80, 140, 240, 245), fill=background)
     draw_sign(draw, 100, 165, 120, INK)
+    patch_installed_overview_signs(image)
     image.save(ASSETS / "installed-overview-en.png", optimize=True)
     shutil.copyfile(ASSETS / "installed-overview-en.png", ASSETS / "installed.png")
 
@@ -191,13 +230,16 @@ def patch_brand_board(construction: Image.Image) -> None:
     draw = ImageDraw.Draw(board)
     draw.rectangle((58, 200, 402, 355), fill=INK)
     draw_sign(draw, 68, 220, 296, PAPER)
+    patch_product_surface_signs(board)
+    patch_ui_system_signs(board)
     board.paste(construction, (0, 1046))
     board.save(ASSETS / "brand-board.png", optimize=True)
 
 
 def render_crops(construction: Image.Image) -> None:
+    board = Image.open(ASSETS / "brand-board.png").convert("RGB")
     crop_surface().save(ASSETS / "concept-surface.png", optimize=True)
-    BOARD.crop((432, 678, 1024, 1046)).save(ASSETS / "campaign-statement.png", optimize=True)
+    board.crop((432, 678, 1024, 1046)).save(ASSETS / "campaign-statement.png", optimize=True)
     construction.save(ASSETS / "symbol-construction.png", optimize=True)
 
 
