@@ -1,5 +1,9 @@
-import { readFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 import {
   SIDE_CHAT_SIGN_CLIP_X,
@@ -10,6 +14,24 @@ import {
 
 const assetUrl = (name: string) => new URL(`../docs/assets/${name}`, import.meta.url)
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
+const rendererPath = fileURLToPath(new URL('../scripts/render-brand-assets.py', import.meta.url))
+const execFileAsync = promisify(execFile)
+
+async function rendererOutputNames(): Promise<string[]> {
+  const source = [
+    'import importlib.util, json, pathlib',
+    `path = pathlib.Path(${JSON.stringify(rendererPath)})`,
+    'spec = importlib.util.spec_from_file_location("render_brand_assets", path)',
+    'module = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(module)',
+    'print(json.dumps(module.RENDERED_ASSET_NAMES))',
+  ].join('\n')
+  const { stdout } = await execFileAsync('python3', ['-c', source], {
+    cwd: repositoryRoot,
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+  })
+  return JSON.parse(stdout) as string[]
+}
 
 function pathData(svg: string): string[] {
   return [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(match => match[1] ?? '')
@@ -94,4 +116,49 @@ describe('Parallel Side Branch sign contract', () => {
     expect(installedOverview.match(/repaint_sign_region\(/g)).toHaveLength(3)
     expect(cropSurface).toContain('Image.open(ASSETS / "brand-board.png")')
   })
+
+  it('keeps every tracked renderer output byte-identical across isolated renders', async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), 'dsh-side-chat-assets-'))
+    const temporaryAssets = join(temporaryRoot, 'docs', 'assets')
+
+    try {
+      await cp(fileURLToPath(new URL('../docs/assets/', import.meta.url)), temporaryAssets, { recursive: true })
+      const renderedAssetNames = await rendererOutputNames()
+      const { stdout: trackedOutput } = await execFileAsync(
+        'git',
+        ['ls-files', '--', 'docs/assets/*.png'],
+        { cwd: repositoryRoot },
+      )
+      const trackedAssetNames = trackedOutput.trim().split('\n').filter(Boolean).map(path => basename(path)).sort()
+      expect([...renderedAssetNames].sort()).toEqual(trackedAssetNames)
+
+      await execFileAsync('python3', [rendererPath], {
+        cwd: repositoryRoot,
+        env: { ...process.env, DSH_SIDE_CHAT_TEST_ASSETS_DIR: temporaryAssets },
+      })
+
+      const firstRender = new Map<string, Buffer>()
+      for (const name of renderedAssetNames) {
+        const [committed, rendered] = await Promise.all([
+          readFile(assetUrl(name)),
+          readFile(join(temporaryAssets, name)),
+        ])
+        firstRender.set(name, rendered)
+        expect(rendered.equals(committed), name).toBe(true)
+      }
+
+      await execFileAsync('python3', [rendererPath], {
+        cwd: repositoryRoot,
+        env: { ...process.env, DSH_SIDE_CHAT_TEST_ASSETS_DIR: temporaryAssets },
+      })
+      for (const name of renderedAssetNames) {
+        const rendered = await readFile(join(temporaryAssets, name))
+        const previous = firstRender.get(name)
+        if (previous === undefined) throw new Error(`Missing first render for ${name}`)
+        expect(rendered.equals(previous), name).toBe(true)
+      }
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true })
+    }
+  }, 15_000)
 })

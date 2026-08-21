@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import random
 import shutil
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "docs" / "assets"
+ASSETS = Path(os.environ.get("DSH_SIDE_CHAT_TEST_ASSETS_DIR", ROOT / "docs" / "assets"))
+
+RENDERED_ASSET_NAMES = (
+    "brand-board.png",
+    "hero-dark.png",
+    "hero.png",
+    "social-card.png",
+    "installed-overview-en.png",
+    "installed.png",
+    "concept-surface.png",
+    "campaign-statement.png",
+    "symbol-construction.png",
+)
 
 INK = "#0B0D0E"
 PAPER = "#F2F0E8"

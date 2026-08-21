@@ -528,3 +528,37 @@ git add docs/superpowers/plans/2026-08-21-unified-sign.md scripts/render-brand-a
   docs/assets/installed-overview-en.png docs/assets/installed.png
 git commit -m "docs: unify embedded raster signs"
 ```
+
+### Task 7: Commit and verify every derived brand asset
+
+**Files:**
+- Modify: `scripts/render-brand-assets.py`
+- Modify: `tests/sign-contract.spec.ts`
+- Regenerate: `docs/assets/concept-surface.png`
+- Verify: every tracked renderer output, including `campaign-statement.png`
+
+**Purpose:** `concept-surface.png` is an active asset named by `docs/brand/BRAND_GUIDE.md`. It must be committed after the product-surface patch and the renderer must be prevented from silently drifting any tracked output again.
+
+- [x] **Step 1: Add a failing renderer-output idempotence contract**
+
+Write a test that copies `docs/assets` into a temporary directory, invokes the renderer against that copy, and byte-compares every tracked output to the committed original: `brand-board.png`, `hero-dark.png`, `hero.png`, `social-card.png`, `installed-overview-en.png`, `installed.png`, `concept-surface.png`, `campaign-statement.png`, and `symbol-construction.png`.
+
+- [x] **Step 2: Make the renderer testable outside the repository asset directory**
+
+Allow a test-only asset-directory environment override while retaining the default `docs/assets` behavior. Keep every tracked output listed in one explicit constant so source and contract cannot drift.
+
+- [x] **Step 3: Regenerate and stage the active concept surface**
+
+Run the deterministic renderer and stage `concept-surface.png`. Confirm `campaign-statement.png` remains byte-identical if its crop does not depend on a patched area.
+
+- [x] **Step 4: Run idempotence and full checks**
+
+Run the new focused test, `pnpm run check`, both alias comparisons, and a second isolated render. Verify no tracked renderer output changes after the second render.
+
+- [x] **Step 5: Commit the asset-completeness correction**
+
+```bash
+git add docs/superpowers/plans/2026-08-21-unified-sign.md scripts/render-brand-assets.py \
+  tests/sign-contract.spec.ts docs/assets/concept-surface.png docs/assets/campaign-statement.png
+git commit -m "docs: verify derived brand assets"
+```
