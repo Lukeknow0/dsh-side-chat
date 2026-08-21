@@ -4,3 +4,4 @@ coverage/
 *.log
 .DS_Store
 docs/brand/rendered/
+.worktrees/
