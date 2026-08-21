@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "lib": ["ES2024"], "types": ["node"] },
+  "include": ["src/index.ts", "src/host/**/*.ts", "src/shared/**/*.ts", "src/remote-descriptors.ts", "src/typert.host.ts"]
+}
