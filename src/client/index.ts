@@ -21,7 +21,6 @@ function installSideChat(ctx: ClientContext): void {
   const controller = new SideChatController(ctx, ctx.remote.sideChat)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-chat: client dictionaries')
   ctx.effect(() => () => { void controller.dispose() }, 'side-chat: controller lifecycle')
-  ctx.on('connection/reset', () => { void controller.close() })
 
   ctx.slots.inject(
     'conversation.session.header.actions',

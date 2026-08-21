@@ -1,4 +1,4 @@
-import { A as startSideChatRequestSchema, C as readSideChatResultSchema, D as sideChatErrorCodeSchema, E as sendSideChatValueSchema, M as startSideChatValueSchema, O as sideChatErrorSchema, S as readSideChatRequestSchema, T as sendSideChatResultSchema, _ as cancelSideChatRequestSchema, a as CloseSideChatValue, b as closeSideChatResultSchema, c as SendSideChatRequest, d as SideChatError, f as SideChatErrorCode, g as StartSideChatValue, h as StartSideChatResult, i as CloseSideChatResult, j as startSideChatResultSchema, k as sideChatTranscriptMessageSchema, l as SendSideChatResult, m as StartSideChatRequest, n as CancelSideChatResult, o as ReadSideChatRequest, p as SideChatTranscriptMessage, r as CloseSideChatRequest, s as ReadSideChatResult, t as CancelSideChatRequest, u as SendSideChatValue, v as cancelSideChatResultSchema, w as sendSideChatRequestSchema, x as closeSideChatValueSchema, y as closeSideChatRequestSchema } from "./remote-C2q_fsSd.js";
+import { A as startSideChatRequestSchema, C as readSideChatResultSchema, D as sideChatErrorCodeSchema, E as sendSideChatValueSchema, M as startSideChatValueSchema, O as sideChatErrorSchema, S as readSideChatRequestSchema, T as sendSideChatResultSchema, _ as cancelSideChatRequestSchema, a as CloseSideChatValue, b as closeSideChatResultSchema, c as SendSideChatRequest, d as SideChatError, f as SideChatErrorCode, g as StartSideChatValue, h as StartSideChatResult, i as CloseSideChatResult, j as startSideChatResultSchema, k as sideChatTranscriptMessageSchema, l as SendSideChatResult, m as StartSideChatRequest, n as CancelSideChatResult, o as ReadSideChatRequest, p as SideChatTranscriptMessage, r as CloseSideChatRequest, s as ReadSideChatResult, t as CancelSideChatRequest, u as SendSideChatValue, v as cancelSideChatResultSchema, w as sendSideChatRequestSchema, x as closeSideChatValueSchema, y as closeSideChatRequestSchema } from "./remote-NyT4slHF.js";
 import { Context } from "@deepseek-ai/cordis";
 import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import { SessionEvent } from "@deepseek-ai/dsh-session";
@@ -15,6 +15,9 @@ declare class SideChatService extends TypertRemoteService {
   cancel(request: CancelSideChatRequest): Promise<CancelSideChatResult>;
   close(request: CloseSideChatRequest): Promise<CloseSideChatResult>;
   private startValue;
+  private adoptToken;
+  private touch;
+  private scheduleExpiry;
   private forget;
   private disposeAll;
 }
