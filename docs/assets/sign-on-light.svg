@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 24" fill="none">
+  <defs>
+    <clipPath id="side-chat-sign-light">
+      <rect x="25" y="0" width="23" height="24" />
+    </clipPath>
+  </defs>
+  <path d="M4 6H44" stroke="#0B0D0E" stroke-width="4" stroke-linecap="round" />
+  <path d="M4 14H25C29 14 30 20 35 20H44" stroke="#0B0D0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M4 14H25C29 14 30 20 35 20H44" stroke="#B7E85B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#side-chat-sign-light)" />
+</svg>
