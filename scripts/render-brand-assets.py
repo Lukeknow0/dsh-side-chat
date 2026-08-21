@@ -135,6 +135,16 @@ def render_hero(size: tuple[int, int], output: str) -> None:
     image.save(ASSETS / output, optimize=True)
 
 
+def render_installed_overview() -> None:
+    image = Image.open(ASSETS / "installed-overview-en.png").convert("RGB")
+    draw = ImageDraw.Draw(image)
+    background = image.getpixel((80, 140))
+    draw.rectangle((80, 140, 240, 245), fill=background)
+    draw_sign(draw, 100, 165, 120, INK)
+    image.save(ASSETS / "installed-overview-en.png", optimize=True)
+    shutil.copyfile(ASSETS / "installed-overview-en.png", ASSETS / "installed.png")
+
+
 def render_construction_panel() -> Image.Image:
     width, height = 432, 490
     image = Image.new("RGB", (width, height), INK)
@@ -198,5 +208,6 @@ if __name__ == "__main__":
     render_hero((2400, 1350), "hero-dark.png")
     shutil.copyfile(ASSETS / "hero-dark.png", ASSETS / "hero.png")
     render_hero((1200, 630), "social-card.png")
+    render_installed_overview()
     render_crops(construction)
-    print("Rendered hero-dark.png, hero.png, social-card.png, and supporting brand crops")
+    print("Rendered hero-dark.png, hero.png, social-card.png, installed overviews, and supporting brand crops")

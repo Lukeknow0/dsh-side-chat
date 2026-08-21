@@ -50,4 +50,23 @@ describe('Parallel Side Branch sign contract', () => {
     expect(bundle).not.toContain('loadingRails')
     expect(bundle).not.toContain(repositoryRoot)
   })
+
+  it('regenerates the light overview and keeps README aliases stable', async () => {
+    const [readme, readmeZh, renderer, hero, heroAlias, overview, overviewAlias] = await Promise.all([
+      readFile(new URL('../README.md', import.meta.url), 'utf8'),
+      readFile(new URL('../README.zh.md', import.meta.url), 'utf8'),
+      readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8'),
+      readFile(assetUrl('hero-dark.png')),
+      readFile(assetUrl('hero.png')),
+      readFile(assetUrl('installed-overview-en.png')),
+      readFile(assetUrl('installed.png')),
+    ])
+    for (const source of [readme, readmeZh]) {
+      expect(source.indexOf('docs/assets/hero-dark.png')).toBeLessThan(source.indexOf('docs/assets/installed-overview-en.png'))
+    }
+    expect(renderer).toContain('def render_installed_overview()')
+    expect(renderer).toContain('draw_sign(draw, 100, 165, 120, INK)')
+    expect(heroAlias.equals(hero)).toBe(true)
+    expect(overviewAlias.equals(overview)).toBe(true)
+  })
 })
