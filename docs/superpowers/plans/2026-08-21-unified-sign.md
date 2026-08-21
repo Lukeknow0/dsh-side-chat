@@ -596,3 +596,35 @@ git add tests/sign-contract.spec.ts .github/workflows/ci.yml requirements-brand-
   docs/brand/BRAND_GUIDE.md docs/superpowers/plans/2026-08-21-unified-sign.md
 git commit -m "ci: scope brand asset verification"
 ```
+
+### Task 9: Stabilize the native asset contract
+
+**Files:**
+- Modify: `tests/sign-contract.spec.ts`
+- Modify: `docs/brand/BRAND_GUIDE.md`
+
+**Purpose:** GitHub Actions job `96862052959` on `macos-26-arm64` proved that Pillow 12.2.0 output can differ from the committed authoring bytes because Apple system fonts and native rasterization vary across macOS environments. CI must prove native renderer idempotence without treating cross-machine byte equality as portable.
+
+- [x] **Step 1: Preserve the cross-platform static contract**
+
+Keep the Python-free nine-output manifest, existence, and SHA-256 contract active on every platform.
+
+- [x] **Step 2: Make macOS CI verify native idempotence**
+
+Continue copying assets to a temporary directory and running the real renderer twice on Darwin. Compare all nine second-render outputs with the first render, clean the temporary directory, and never compare CI-rendered bytes with authoring-machine bytes.
+
+- [x] **Step 3: Add an opt-in authoring byte contract**
+
+When `DSH_SIDE_CHAT_STRICT_ASSET_BYTES=1` is set on Darwin, render into a temporary directory and compare the first render with all nine committed outputs. Keep this strict mode disabled by default in CI.
+
+- [x] **Step 4: Document and verify all three policies**
+
+Record the failed job and native-font root cause in the brand guide. Verify the Python-free static contract with a failing Python shim, the default macOS two-render contract, the strict local contract, `env CI=true pnpm run check`, and `git diff --check`.
+
+- [x] **Step 5: Commit the native contract correction**
+
+```bash
+git add tests/sign-contract.spec.ts docs/brand/BRAND_GUIDE.md \
+  docs/superpowers/plans/2026-08-21-unified-sign.md
+git commit -m "ci: stabilize native asset contract"
+```

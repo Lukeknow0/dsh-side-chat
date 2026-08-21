@@ -39,4 +39,7 @@ The shipped drawer follows DSH design tokens. Brand expression comes from the ra
 - `symbol-construction.png`: logo geometry
 
 Run `python3 scripts/render-brand-assets.py` to reproduce the derived campaign assets from the identity board.
-The byte-for-byte rerender contract runs only on macOS because the renderer uses Apple system fonts; its CI leg installs the Pillow version pinned in `requirements-brand-assets.txt`. Every platform still verifies the complete tracked PNG manifest and committed SHA-256 hashes without invoking Python.
+
+Every platform verifies the complete tracked PNG manifest and committed SHA-256 hashes without invoking Python. The macOS CI leg installs the Pillow version pinned in `requirements-brand-assets.txt`, renders all nine assets twice in a temporary directory, and requires the second temporary render to match the first. It never writes to `docs/assets`.
+
+Strict committed-byte equality is an authoring check, not a CI invariant. GitHub Actions job `96862052959` on `macos-26-arm64` produced different `brand-board.png` bytes with Pillow 12.2.0 because the renderer uses Apple system fonts and native rasterization varies across macOS environments. Before publishing regenerated images, run `DSH_SIDE_CHAT_STRICT_ASSET_BYTES=1 env CI=true pnpm vitest run tests/sign-contract.spec.ts` on the approved authoring Mac; this opt-in contract compares the first temporary render with all nine committed outputs.

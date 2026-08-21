@@ -46,6 +46,9 @@ async function trackedPngNames(): Promise<string[]> {
 }
 
 const itOnDarwin = process.platform === 'darwin' ? it : it.skip
+const itOnStrictDarwin = process.platform === 'darwin' && process.env.DSH_SIDE_CHAT_STRICT_ASSET_BYTES === '1'
+  ? it
+  : it.skip
 
 function pathData(svg: string): string[] {
   return [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(match => match[1] ?? '')
@@ -144,6 +147,14 @@ describe('Parallel Side Branch sign contract', () => {
     expect(requirements.trim()).toBe('Pillow==12.2.0')
   })
 
+  it('documents CI idempotence and opt-in authoring byte policies', async () => {
+    const guide = await readFile(new URL('../docs/brand/BRAND_GUIDE.md', import.meta.url), 'utf8')
+
+    expect(guide).toContain('DSH_SIDE_CHAT_STRICT_ASSET_BYTES=1')
+    expect(guide).toContain('second temporary render')
+    expect(guide).toContain('96862052959')
+  })
+
   it('keeps every tracked renderer output declared and hash-pinned without Python', async () => {
     const renderer = await readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8')
     const trackedAssetNames = await trackedPngNames()
@@ -157,7 +168,7 @@ describe('Parallel Side Branch sign contract', () => {
     }
   })
 
-  itOnDarwin('keeps every tracked renderer output byte-identical across isolated renders', async () => {
+  itOnDarwin('keeps every tracked renderer output stable across native macOS isolated renders', async () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), 'dsh-side-chat-assets-'))
     const temporaryAssets = join(temporaryRoot, 'docs', 'assets')
 
@@ -175,12 +186,8 @@ describe('Parallel Side Branch sign contract', () => {
 
       const firstRender = new Map<string, Buffer>()
       for (const name of renderedAssetNames) {
-        const [committed, rendered] = await Promise.all([
-          readFile(assetUrl(name)),
-          readFile(join(temporaryAssets, name)),
-        ])
+        const rendered = await readFile(join(temporaryAssets, name))
         firstRender.set(name, rendered)
-        expect(rendered.equals(committed), name).toBe(true)
       }
 
       await execFileAsync('python3', [rendererPath], {
@@ -192,6 +199,32 @@ describe('Parallel Side Branch sign contract', () => {
         const previous = firstRender.get(name)
         if (previous === undefined) throw new Error(`Missing first render for ${name}`)
         expect(rendered.equals(previous), name).toBe(true)
+      }
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true })
+    }
+  }, 15_000)
+
+  itOnStrictDarwin('matches committed renderer bytes in the opted-in local authoring environment', async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), 'dsh-side-chat-assets-strict-'))
+    const temporaryAssets = join(temporaryRoot, 'docs', 'assets')
+
+    try {
+      await cp(fileURLToPath(new URL('../docs/assets/', import.meta.url)), temporaryAssets, { recursive: true })
+      const renderer = await readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8')
+      const renderedAssetNames = rendererOutputNames(renderer)
+      expect([...renderedAssetNames].sort()).toEqual(await trackedPngNames())
+
+      await execFileAsync('python3', [rendererPath], {
+        cwd: repositoryRoot,
+        env: { ...process.env, DSH_SIDE_CHAT_TEST_ASSETS_DIR: temporaryAssets },
+      })
+      for (const name of renderedAssetNames) {
+        const [committed, rendered] = await Promise.all([
+          readFile(assetUrl(name)),
+          readFile(join(temporaryAssets, name)),
+        ])
+        expect(rendered.equals(committed), name).toBe(true)
       }
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true })
