@@ -26,5 +26,15 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
+      - name: Set up Python for brand asset verification
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements-brand-assets.txt
+      - name: Install brand asset renderer dependencies
+        if: runner.os == 'macOS'
+        run: python -m pip install -r requirements-brand-assets.txt
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check

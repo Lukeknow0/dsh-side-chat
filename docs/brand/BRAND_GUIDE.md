@@ -39,3 +39,4 @@ The shipped drawer follows DSH design tokens. Brand expression comes from the ra
 - `symbol-construction.png`: logo geometry
 
 Run `python3 scripts/render-brand-assets.py` to reproduce the derived campaign assets from the identity board.
+The byte-for-byte rerender contract runs only on macOS because the renderer uses Apple system fonts; its CI leg installs the Pillow version pinned in `requirements-brand-assets.txt`. Every platform still verifies the complete tracked PNG manifest and committed SHA-256 hashes without invoking Python.

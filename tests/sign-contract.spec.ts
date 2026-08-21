@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -17,21 +18,34 @@ const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
 const rendererPath = fileURLToPath(new URL('../scripts/render-brand-assets.py', import.meta.url))
 const execFileAsync = promisify(execFile)
 
-async function rendererOutputNames(): Promise<string[]> {
-  const source = [
-    'import importlib.util, json, pathlib',
-    `path = pathlib.Path(${JSON.stringify(rendererPath)})`,
-    'spec = importlib.util.spec_from_file_location("render_brand_assets", path)',
-    'module = importlib.util.module_from_spec(spec)',
-    'spec.loader.exec_module(module)',
-    'print(json.dumps(module.RENDERED_ASSET_NAMES))',
-  ].join('\n')
-  const { stdout } = await execFileAsync('python3', ['-c', source], {
-    cwd: repositoryRoot,
-    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
-  })
-  return JSON.parse(stdout) as string[]
+const COMMITTED_RENDERER_OUTPUTS = {
+  'brand-board.png': '5be91de0df71fb871af75546b7bfd9e2c4f5ee90a336b556fc4124675fe41a8f',
+  'hero-dark.png': '3e1b73a4d5ee6839a32c520f260c3c74de31175169077468160bdaf5a7aa14dd',
+  'hero.png': '3e1b73a4d5ee6839a32c520f260c3c74de31175169077468160bdaf5a7aa14dd',
+  'social-card.png': '8d3b82abc08bc02d1134de47167648cdde2092eb6acfa5829a5280d588f7010b',
+  'installed-overview-en.png': '98cff9551ac0d77f63f1ed36d7842f31e23aa4802478e9fae0eb29e0a6fb2a5c',
+  'installed.png': '98cff9551ac0d77f63f1ed36d7842f31e23aa4802478e9fae0eb29e0a6fb2a5c',
+  'concept-surface.png': '03be2224d73d2db2ee5ae40d02cfed00088d73a495e87de7dd0022212a26de73',
+  'campaign-statement.png': 'c57f589b66b477bac574841a6cae0d1c274c26d2b53b96e0eea7c4b94f00f38f',
+  'symbol-construction.png': '321d9532ac971587e1c7ed06232e956006caba1e0b6b28c6fb7fc1b73e40b898',
+} as const
+
+function rendererOutputNames(source: string): string[] {
+  const namesBlock = source.match(/RENDERED_ASSET_NAMES = \(\n([\s\S]*?)\n\)/)?.[1]
+  if (namesBlock === undefined) throw new Error('Missing RENDERED_ASSET_NAMES')
+  return [...namesBlock.matchAll(/^\s+"([^"]+\.png)",$/gm)].map(match => match[1] ?? '')
 }
+
+async function trackedPngNames(): Promise<string[]> {
+  const { stdout } = await execFileAsync(
+    'git',
+    ['ls-files', '--', 'docs/assets/*.png'],
+    { cwd: repositoryRoot },
+  )
+  return stdout.trim().split('\n').filter(Boolean).map(path => basename(path)).sort()
+}
+
+const itOnDarwin = process.platform === 'darwin' ? it : it.skip
 
 function pathData(svg: string): string[] {
   return [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(match => match[1] ?? '')
@@ -117,19 +131,41 @@ describe('Parallel Side Branch sign contract', () => {
     expect(cropSurface).toContain('Image.open(ASSETS / "brand-board.png")')
   })
 
-  it('keeps every tracked renderer output byte-identical across isolated renders', async () => {
+  it('installs pinned renderer dependencies only on macOS CI', async () => {
+    const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
+    const requirements = await readFile(new URL('../requirements-brand-assets.txt', import.meta.url), 'utf8')
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return ''
+        throw error
+      })
+
+    expect(workflow).toContain("if: runner.os == 'macOS'")
+    expect(workflow).toContain('python -m pip install -r requirements-brand-assets.txt')
+    expect(requirements.trim()).toBe('Pillow==12.2.0')
+  })
+
+  it('keeps every tracked renderer output declared and hash-pinned without Python', async () => {
+    const renderer = await readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8')
+    const trackedAssetNames = await trackedPngNames()
+    const renderedAssetNames = rendererOutputNames(renderer).sort()
+
+    expect(renderedAssetNames).toEqual(trackedAssetNames)
+    expect(Object.keys(COMMITTED_RENDERER_OUTPUTS).sort()).toEqual(trackedAssetNames)
+    for (const [name, expectedHash] of Object.entries(COMMITTED_RENDERER_OUTPUTS)) {
+      const committed = await readFile(assetUrl(name))
+      expect(createHash('sha256').update(committed).digest('hex'), name).toBe(expectedHash)
+    }
+  })
+
+  itOnDarwin('keeps every tracked renderer output byte-identical across isolated renders', async () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), 'dsh-side-chat-assets-'))
     const temporaryAssets = join(temporaryRoot, 'docs', 'assets')
 
     try {
       await cp(fileURLToPath(new URL('../docs/assets/', import.meta.url)), temporaryAssets, { recursive: true })
-      const renderedAssetNames = await rendererOutputNames()
-      const { stdout: trackedOutput } = await execFileAsync(
-        'git',
-        ['ls-files', '--', 'docs/assets/*.png'],
-        { cwd: repositoryRoot },
-      )
-      const trackedAssetNames = trackedOutput.trim().split('\n').filter(Boolean).map(path => basename(path)).sort()
+      const renderer = await readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8')
+      const renderedAssetNames = rendererOutputNames(renderer)
+      const trackedAssetNames = await trackedPngNames()
       expect([...renderedAssetNames].sort()).toEqual(trackedAssetNames)
 
       await execFileAsync('python3', [rendererPath], {

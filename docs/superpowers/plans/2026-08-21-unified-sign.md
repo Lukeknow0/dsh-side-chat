@@ -562,3 +562,37 @@ git add docs/superpowers/plans/2026-08-21-unified-sign.md scripts/render-brand-a
   tests/sign-contract.spec.ts docs/assets/concept-surface.png docs/assets/campaign-statement.png
 git commit -m "docs: verify derived brand assets"
 ```
+
+### Task 8: Scope brand asset verification by platform
+
+**Files:**
+- Modify: `tests/sign-contract.spec.ts`
+- Modify: `.github/workflows/ci.yml`
+- Create: `requirements-brand-assets.txt`
+- Modify: `docs/brand/BRAND_GUIDE.md`
+
+**Purpose:** Keep the renderer manifest and committed raster hashes protected on every CI platform without requiring Pillow or Apple fonts on Ubuntu, while retaining the full byte-for-byte isolated rerender contract on macOS.
+
+- [x] **Step 1: Add a failing macOS dependency-scope contract**
+
+Require the CI workflow to install a fixed Pillow version only on macOS and keep the renderer dependency in a dedicated requirements file.
+
+- [x] **Step 2: Split static and dynamic asset contracts**
+
+Parse `RENDERED_ASSET_NAMES` as source text, compare it with every Git-tracked PNG, and verify every committed SHA-256 on all platforms without importing Python. Run the two-pass isolated renderer test only on Darwin.
+
+- [x] **Step 3: Document the renderer environment**
+
+Record that full byte-for-byte rerender verification depends on Apple system fonts and runs only on macOS, while the manifest/hash contract remains cross-platform.
+
+- [x] **Step 4: Verify both CI paths**
+
+Run the cross-platform static contract with a failing Python shim, then run the actual renderer contract on macOS. Run `env CI=true pnpm run check` and `git diff --check`.
+
+- [x] **Step 5: Commit the CI correction**
+
+```bash
+git add tests/sign-contract.spec.ts .github/workflows/ci.yml requirements-brand-assets.txt \
+  docs/brand/BRAND_GUIDE.md docs/superpowers/plans/2026-08-21-unified-sign.md
+git commit -m "ci: scope brand asset verification"
+```
