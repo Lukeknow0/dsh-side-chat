@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   SIDE_CHAT_SIGN_CLIP_X,
@@ -8,6 +9,7 @@ import {
 } from '../src/client/SideChatSign.tsx'
 
 const assetUrl = (name: string) => new URL(`../docs/assets/${name}`, import.meta.url)
+const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
 
 function pathData(svg: string): string[] {
   return [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(match => match[1] ?? '')
@@ -38,5 +40,14 @@ describe('Parallel Side Branch sign contract', () => {
     expect(drawer).not.toContain('function RailMark')
     expect(styles).not.toContain('.railMark > span')
     expect(styles).not.toContain('.loadingRails span')
+  })
+
+  it('keeps the committed client bundle on the canonical sign contract', async () => {
+    const bundle = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
+    expect(bundle).toContain(SIDE_CHAT_SIGN_UPPER_PATH)
+    expect(bundle).toContain(SIDE_CHAT_SIGN_LOWER_PATH)
+    expect(bundle).not.toContain('RailMark')
+    expect(bundle).not.toContain('loadingRails')
+    expect(bundle).not.toContain(repositoryRoot)
   })
 })

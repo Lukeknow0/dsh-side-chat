@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises'
-import { basename, dirname, resolve as resolvePath } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { basename, dirname, join, normalize, relative, resolve as resolvePath, sep } from 'node:path'
 import { transform } from 'lightningcss'
 import type { UserConfig } from 'tsdown'
 
 const PLUGIN_ID = 'dsh-side-chat'
 const CSS_VIRTUAL_PREFIX = '\0dsh-side-chat-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+const REPOSITORY_ROOT = dirname(fileURLToPath(import.meta.url))
 
 const CLIENT_EXTERNALS = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client',
@@ -23,14 +25,16 @@ const inlineCssPlugin = {
   name: 'dsh-side-chat-css-inline',
   resolveId(source: string, importer: string | undefined) {
     if (!source.endsWith('.css')) return null
-    if (importer === undefined || source.startsWith('\0')) return       `${CSS_VIRTUAL_PREFIX}${source}${CSS_VIRTUAL_SUFFIX}`
+    if (source.startsWith('\0')) return `${CSS_VIRTUAL_PREFIX}${source}${CSS_VIRTUAL_SUFFIX}`
     if (!source.startsWith('.')) throw new Error(`bare stylesheet imports are not supported: ${source}`)
-    return `${CSS_VIRTUAL_PREFIX}${resolvePath(dirname(importer), source)}${CSS_VIRTUAL_SUFFIX}`
+    const importerDirectory = importer === undefined ? '' : relative(REPOSITORY_ROOT, dirname(importer))
+    const fileId = normalize(join(importerDirectory, source)).split(sep).join('/')
+    return `${CSS_VIRTUAL_PREFIX}${fileId}${CSS_VIRTUAL_SUFFIX}`
   },
   async load(virtualId: string) {
     if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
     const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
-    const source = await readFile(fileId)
+    const source = await readFile(resolvePath(REPOSITORY_ROOT, fileId))
     const isModule = fileId.endsWith('.module.css')
     const { code, exports: cssExports } = transform({
       filename: fileId,
@@ -38,8 +42,11 @@ const inlineCssPlugin = {
       ...(isModule ? { cssModules: { pattern: '[hash]_[local]' } } : {}),
       minify: true,
     })
-    const classMap: Record<string, string> = {}
-    for (const [local, exported] of Object.entries(cssExports ?? {})) classMap[local] = exported.name
+    const classMap = Object.fromEntries(
+      Object.entries(cssExports ?? {})
+        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+        .map(([local, exported]) => [local, exported.name]),
+    )
     const tagId = `${PLUGIN_ID}/${basename(fileId)}`
     return [
       `const css = ${JSON.stringify(code.toString())};`,
