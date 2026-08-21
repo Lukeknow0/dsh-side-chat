@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.png" alt="DSH Side Chat：临时问一句，主任务不跑偏" width="100%" />
+  <img src="docs/assets/hero-dark.png" alt="DSH Side Chat：临时问一句，主任务不跑偏" width="100%" />
 </p>
 
 <h1 align="center">dsh-side-chat</h1>
@@ -21,7 +21,7 @@
 > **临时问一句，主任务不跑偏。** 打开继承父会话已完成上下文的侧栏，处理一个临时问题；关闭后，这段问答不会被写回主会话。
 
 <p align="center">
-  <img src="docs/assets/installed.png" alt="Side Chat 安装到 DeepSeek Harness 后的界面" width="92%" />
+  <img src="docs/assets/installed-overview-en.png" alt="Side Chat 安装到 DeepSeek Harness 后的界面" width="92%" />
 </p>
 
 ## 为什么需要 Side Chat？

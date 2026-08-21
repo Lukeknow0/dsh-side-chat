@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.png" alt="DSH Side Chat: Ask aside. Stay on track." width="100%" />
+  <img src="docs/assets/hero-dark.png" alt="DSH Side Chat: Ask aside. Stay on track." width="100%" />
 </p>
 
 <h1 align="center">dsh-side-chat</h1>
@@ -21,7 +21,7 @@
 > **Ask aside. Stay on track.** Open a focused drawer that inherits the completed parent context, ask a temporary question, then close it without writing the exchange back into the main conversation.
 
 <p align="center">
-  <img src="docs/assets/installed.png" alt="Side Chat installed in DeepSeek Harness" width="92%" />
+  <img src="docs/assets/installed-overview-en.png" alt="Side Chat installed in DeepSeek Harness" width="92%" />
 </p>
 
 ## Why Side Chat?
