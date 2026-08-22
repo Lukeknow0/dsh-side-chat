@@ -41,6 +41,12 @@ Long coding conversations accumulate decisions, plans, and in-flight work. A sma
 
 ## Install
 
+### From npm
+
+```bash
+dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```
+
 ### From GitHub
 
 ```bash

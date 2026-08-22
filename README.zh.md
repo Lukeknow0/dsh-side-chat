@@ -41,6 +41,12 @@
 
 ## 安装
 
+### 从 npm 安装
+
+```bash
+dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```
+
 ### 从 GitHub 安装
 
 ```bash
