@@ -130,7 +130,7 @@ sequenceDiagram
   Note over P,C: Parent and child run independently
   U->>D: Switch parent task
   D->>D: Park drawer state by parent
-  Note over D,H: Visible/running stays alive; parked and idle retains for 30 min
+  Note over D,H: Visible or running chats stay alive while parked idle chats remain for 30 min
   U->>D: Return to parent and restore transcript
   U->>D: Close
   D->>H: close(chatToken)
