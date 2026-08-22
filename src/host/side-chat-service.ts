@@ -41,46 +41,49 @@ const SIDE_CHAT_PERSONA = 'You are in a temporary side conversation, separate fr
 const SIDE_CHAT_BOUNDARY = 'Side conversation boundary. Everything before this message is inherited history from the parent thread and is reference context only, not your current task. Do not continue any earlier plan, edit, command, approval, or tool call. Only direct user messages after this boundary are active instructions. This conversation is read-only.'
 
 export const SIDE_CHAT_IDLE_TTL_MS = 30 * 60 * 1_000
+export const SIDE_CHAT_LEASE_POLL_MS = 1_000
 
 export interface SideChatLeaseInput {
   now: number
   expiresAt: number
-  wasRunning: boolean
-  running: boolean
+  wasBusy: boolean
+  parentRunning: boolean
+  childRunning: boolean
 }
 
 export interface SideChatLeaseDecision {
   expiresAt: number
-  running: boolean
+  busy: boolean
   expire: boolean
   delay: number
 }
 
 export function evaluateSideChatLease(input: SideChatLeaseInput): SideChatLeaseDecision {
-  if (input.running) {
+  const busy = input.parentRunning || input.childRunning
+  if (busy) {
     return {
       expiresAt: input.now + SIDE_CHAT_IDLE_TTL_MS,
-      running: true,
+      busy: true,
       expire: false,
-      delay: 1_000,
+      delay: SIDE_CHAT_LEASE_POLL_MS,
     }
   }
-  if (input.wasRunning) {
+  if (input.wasBusy) {
     return {
       expiresAt: input.now + SIDE_CHAT_IDLE_TTL_MS,
-      running: false,
+      busy: false,
       expire: false,
-      delay: SIDE_CHAT_IDLE_TTL_MS,
+      delay: SIDE_CHAT_LEASE_POLL_MS,
     }
   }
   if (input.expiresAt <= input.now) {
-    return { expiresAt: input.expiresAt, running: false, expire: true, delay: 0 }
+    return { expiresAt: input.expiresAt, busy: false, expire: true, delay: 0 }
   }
   return {
     expiresAt: input.expiresAt,
-    running: false,
+    busy: false,
     expire: false,
-    delay: Math.max(1, input.expiresAt - input.now),
+    delay: Math.max(1, Math.min(SIDE_CHAT_LEASE_POLL_MS, input.expiresAt - input.now)),
   }
 }
 
@@ -93,7 +96,7 @@ interface LiveSideChat {
   readonly sentRequests: Map<string, string>
   expiresAt: number
   expiryTimer: ReturnType<typeof setTimeout> | undefined
-  leaseRunning: boolean
+  leaseBusy: boolean
   handle?: AgentHandle
   creation?: Promise<AgentHandle>
   closing: boolean
@@ -234,7 +237,7 @@ export class SideChatService extends TypertRemoteService {
       sentRequests: new Map(),
       expiresAt: Date.now() + SIDE_CHAT_IDLE_TTL_MS,
       expiryTimer: undefined,
-      leaseRunning: false,
+      leaseBusy: false,
       closing: false,
     }
     this.byToken.set(request.chatToken, entry)
@@ -414,11 +417,12 @@ export class SideChatService extends TypertRemoteService {
     const decision = evaluateSideChatLease({
       now: Date.now(),
       expiresAt: entry.expiresAt,
-      wasRunning: entry.leaseRunning,
-      running: entry.handle?.agent.status === 'running',
+      wasBusy: entry.leaseBusy,
+      parentRunning: this.ctx.agents.get(SessionId(entry.parentSessionId))?.status === 'running',
+      childRunning: entry.handle?.agent.status === 'running',
     })
     entry.expiresAt = decision.expiresAt
-    entry.leaseRunning = decision.running
+    entry.leaseBusy = decision.busy
     if (decision.expire) {
       void this.close({ chatToken: entry.chatToken })
       return
