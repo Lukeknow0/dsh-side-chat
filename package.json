@@ -1,6 +1,6 @@
 {
   "name": "@lukeknow0/dsh-side-chat",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Codex-style temporary side conversations for DeepSeek Harness.",
   "keywords": [
     "dsh-plugin",
