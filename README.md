@@ -130,7 +130,7 @@ sequenceDiagram
   Note over P,C: Parent and child run independently
   U->>D: Switch parent task
   D->>D: Park drawer state by parent
-  Note over D,H: Countdown starts only when parent + child are idle; activity resets it to 30 min
+  Note over D,H: Countdown starts only when parent and child are idle; activity resets it to 30 min
   U->>D: Return to parent and restore transcript
   U->>D: Confirm internal End
   D->>H: close(chatToken)
