@@ -26,7 +26,8 @@ export function SideChatDrawer({
   onEnd,
 }: SideChatDrawerProps) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
-  const parentKey = String(parentSessionId)
+  const activeParentSessionId = state.parentSessionId ?? parentSessionId
+  const parentKey = String(activeParentSessionId)
   const subscribeView = useCallback((listener: () => void) => viewStore.subscribe(listener), [viewStore])
   const getView = useCallback(() => viewStore.get(parentKey), [parentKey, viewStore])
   const view = useSyncExternalStore(subscribeView, getView, getView)
@@ -69,7 +70,7 @@ export function SideChatDrawer({
       />
       <aside className={css.drawer} data-dsh-side-chat-drawer role="complementary" aria-label={t('drawer.title')}>
         <SideChatSurface
-          parentSessionId={parentSessionId}
+          parentSessionId={activeParentSessionId}
           controller={controller}
           viewStore={viewStore}
           t={t}

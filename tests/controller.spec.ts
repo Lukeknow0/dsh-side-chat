@@ -80,6 +80,24 @@ function transportFailure(message = 'Network unavailable.') {
 }
 
 describe('SideChatController lifecycle', () => {
+  it('keeps repeated open for the active parent idempotent', async () => {
+    const env = harness()
+    const remote = {
+      start: vi.fn(async ({ chatToken }: { chatToken: string }) => success(chatToken)),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => readResult(chatToken)),
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    await controller.open('parent' as SessionId)
+    const childSessionId = controller.getSnapshot().childSessionId
+    await controller.open('parent' as SessionId)
+
+    expect(remote.start).toHaveBeenCalledTimes(1)
+    expect(controller.getSnapshot().childSessionId).toBe(childSessionId)
+    await controller.dispose()
+  })
+
   it('retires a start response that arrives after explicit close', async () => {
     const env = harness()
     const start = deferred<ReturnType<typeof success>>()

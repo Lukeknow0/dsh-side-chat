@@ -8,6 +8,7 @@ import type {
 } from 'dsh-better-sidebar/client/service'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SideChatClientState, SideChatController } from '../src/client/controller.ts'
+import { SideChatButton, type SideChatButtonProps } from '../src/client/SideChatButton.tsx'
 import {
   SIDE_CHAT_TAB_TYPE, SideChatPresentation,
 } from '../src/client/presentation.tsx'
@@ -19,6 +20,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
     onClick?: () => void
     disabled?: boolean
   }) => <button type="button" disabled={disabled} onClick={onClick}>{children}</button>,
+  IconBranchOutline16: () => <span />,
   IconLoadingOutline16: () => <span />,
   IconSendOutline16: () => <span />,
   IconStopFill16: () => <span />,
@@ -117,6 +119,38 @@ describe('SideChatPresentation', () => {
 
     expect(viewStore.get('parent').presentation).toBe('drawer')
     expect(controller.open).toHaveBeenCalledWith('parent')
+  })
+
+  it('header toggle minimizes without ending and restores the same child', () => {
+    presentation.show('parent')
+    presentation.toggle('parent')
+    expect(viewStore.get('parent').visible).toBe(false)
+    expect(controller.close).not.toHaveBeenCalled()
+    presentation.toggle('parent')
+    expect(viewStore.get('parent').visible).toBe(true)
+    expect(controller.open).toHaveBeenCalledWith('parent')
+  })
+
+  it('routes the header action through presentation visibility', () => {
+    presentation.show('parent')
+    vi.mocked(controller.hasConversation).mockReturnValue(true)
+    root = createRoot(mount)
+
+    act(() => {
+      root?.render(
+        <SideChatButton {...({
+          sessionId: 'parent',
+          controller,
+          viewStore,
+          presentation,
+          t: (key: string) => key,
+        } as unknown as SideChatButtonProps)} />,
+      )
+    })
+    act(() => { mount.querySelector('button')?.click() })
+
+    expect(viewStore.get('parent').visible).toBe(false)
+    expect(controller.close).not.toHaveBeenCalled()
   })
 
   it('registers one native tab and opens it with session scope', () => {
