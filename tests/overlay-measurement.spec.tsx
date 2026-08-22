@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
-import { act, useRef, type ReactNode } from 'react'
+import { act, useEffect, useRef, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SideChatDrawer } from '../src/client/SideChatDrawer.tsx'
 import type { SideChatController, SideChatClientState } from '../src/client/controller.ts'
+import { SideChatViewStore } from '../src/client/view-store.ts'
 import { rectsIntersect } from '../src/client/overlay-placement.ts'
 import {
   collectOverlayGeometry,
@@ -13,14 +14,33 @@ import {
 } from '../src/client/use-overlay-placement.ts'
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
-  Button: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
-    <button type="button" onClick={onClick}>{children}</button>
+  Button: ({ children, onClick, disabled }: {
+    children?: ReactNode; onClick?: () => void; disabled?: boolean
+  }) => (
+    <button type="button" disabled={disabled} onClick={onClick}>{children}</button>
   ),
   IconCloseOutline16: () => <span />,
   IconLoadingOutline16: () => <span />,
   IconSendOutline16: () => <span />,
   IconStopFill16: () => <span />,
   MarkdownText: ({ text }: { text: string }) => <span>{text}</span>,
+  Modal: ({ open, onClose, title, children, footer }: {
+    open: boolean
+    onClose: () => void
+    title: string
+    children?: ReactNode
+    footer?: ReactNode
+  }) => {
+    useEffect(() => {
+      if (!open) return
+      const onKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') onClose()
+      }
+      document.addEventListener('keydown', onKeyDown)
+      return () => { document.removeEventListener('keydown', onKeyDown) }
+    }, [onClose, open])
+    return open ? <div role="dialog" aria-label={title}>{children}{footer}</div> : null
+  },
 }))
 
 interface MutableBox { left: number; top: number; width: number; height: number }
@@ -255,6 +275,7 @@ describe('overlay geometry measurement', () => {
     const snapshot: SideChatClientState = {
       epoch: 1,
       phase: 'open',
+      parentSessionId: 'parent' as never,
       seedLength: 0,
       revision: 0,
       expiresAt: Date.now() + 60_000,
@@ -271,11 +292,22 @@ describe('overlay geometry measurement', () => {
       cancel: vi.fn(async () => ({ ok: true as const })),
       retry: vi.fn(async () => {}),
     } as unknown as SideChatController
+    const viewStore = new SideChatViewStore()
+    viewStore.show('parent', 'drawer')
     const t = ((key: string) => key) as never
 
     root = createRoot(fixture.slot)
     act(() => {
-      root?.render(<SideChatDrawer controller={controller} t={t} />)
+      root?.render(
+        <SideChatDrawer
+          controller={controller}
+          viewStore={viewStore}
+          parentSessionId={'parent' as never}
+          t={t}
+          onMinimize={() => { viewStore.minimize('parent') }}
+          onEnd={async () => { await controller.close(); viewStore.clear('parent') }}
+        />,
+      )
       flushAnimationFrames()
     })
     const sideRoot = fixture.slot.querySelector('[data-dsh-side-chat-root]')
@@ -303,10 +335,11 @@ describe('overlay geometry measurement', () => {
     expect((fixture.slot.querySelector('textarea') as HTMLTextAreaElement).value).toBe('unfinished question')
   })
 
-  it('keeps the composer usable within a 375px bottom sheet and closes from its scrim', () => {
+  it('keeps the composer usable within a 375px bottom sheet and minimizes from its scrim', () => {
     const fixture = shell(375, 800)
     const snapshot: SideChatClientState = {
-      epoch: 1, phase: 'open', seedLength: 0, revision: 0, expiresAt: Date.now() + 60_000,
+      epoch: 1, phase: 'open', parentSessionId: 'parent' as never,
+      seedLength: 0, revision: 0, expiresAt: Date.now() + 60_000,
       messages: [], partial: '', running: false,
     }
     const close = vi.fn(async () => {})
@@ -315,10 +348,24 @@ describe('overlay geometry measurement', () => {
       send: vi.fn(async () => ({ ok: true as const })), cancel: vi.fn(async () => ({ ok: true as const })),
       retry: vi.fn(async () => {}),
     } as unknown as SideChatController
+    const viewStore = new SideChatViewStore()
+    viewStore.show('parent', 'drawer')
     const t = ((key: string) => key) as never
 
     root = createRoot(fixture.slot)
-    act(() => { root?.render(<SideChatDrawer controller={controller} t={t} />); flushAnimationFrames() })
+    act(() => {
+      root?.render(
+        <SideChatDrawer
+          controller={controller}
+          viewStore={viewStore}
+          parentSessionId={'parent' as never}
+          t={t}
+          onMinimize={() => { viewStore.minimize('parent') }}
+          onEnd={async () => { await controller.close(); viewStore.clear('parent') }}
+        />,
+      )
+      flushAnimationFrames()
+    })
 
     const sideRoot = fixture.slot.querySelector<HTMLElement>('[data-dsh-side-chat-root]')
     const textarea = fixture.slot.querySelector('textarea')
@@ -327,13 +374,14 @@ describe('overlay geometry measurement', () => {
     expect(textarea).not.toBeNull()
     expect(textarea?.disabled).toBe(false)
     act(() => { fixture.slot.querySelector<HTMLElement>('[data-dsh-side-chat-scrim]')?.click() })
-    expect(close).toHaveBeenCalledTimes(1)
+    expect(viewStore.get('parent').visible).toBe(false)
+    expect(close).not.toHaveBeenCalled()
   })
 
   it('renders a clear expired state with a restart action', () => {
     const fixture = shell()
     const snapshot: SideChatClientState = {
-      epoch: 2, phase: 'error', errorKind: 'expired',
+      epoch: 2, phase: 'error', parentSessionId: 'parent' as never, errorKind: 'expired',
       error: 'This Side Chat ended after 30 minutes parked and idle.',
       seedLength: 0, revision: 0, expiresAt: 0, messages: [], partial: '', running: false,
     }
@@ -342,10 +390,24 @@ describe('overlay geometry measurement', () => {
       subscribe: () => () => {}, getSnapshot: () => snapshot, binding: () => undefined, retry,
       close: vi.fn(async () => {}), send: vi.fn(), cancel: vi.fn(),
     } as unknown as SideChatController
+    const viewStore = new SideChatViewStore()
+    viewStore.show('parent', 'drawer')
     const t = ((key: string) => key) as never
 
     root = createRoot(fixture.slot)
-    act(() => { root?.render(<SideChatDrawer controller={controller} t={t} />); flushAnimationFrames() })
+    act(() => {
+      root?.render(
+        <SideChatDrawer
+          controller={controller}
+          viewStore={viewStore}
+          parentSessionId={'parent' as never}
+          t={t}
+          onMinimize={() => { viewStore.minimize('parent') }}
+          onEnd={async () => { await controller.close(); viewStore.clear('parent') }}
+        />,
+      )
+      flushAnimationFrames()
+    })
 
     expect(fixture.slot.textContent).toContain('drawer.expiredTitle')
     expect(fixture.slot.textContent).toContain('drawer.expiredBody')

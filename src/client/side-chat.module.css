@@ -58,6 +58,14 @@
   animation: drawer-in 180ms cubic-bezier(.2, .8, .2, 1);
 }
 
+.surface {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
 .drawerHeader {
   display: flex;
   min-height: 68px;
@@ -69,6 +77,7 @@
 }
 
 .titleCluster { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.titleCluster > div { min-width: 0; }
 .titleCluster p { margin: 2px 0 0; overflow: hidden; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 15px; text-overflow: ellipsis; white-space: nowrap; }
 .titleLine { display: flex; align-items: center; gap: 8px; }
 .titleLine strong { font-size: 14px; font-weight: 620; letter-spacing: -.01em; }
@@ -97,6 +106,31 @@
   letter-spacing: .08em;
   line-height: 14px;
 }
+
+.headerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.endButton {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+.endButton:hover {
+  border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);
+  color: var(--dsw-alias-state-error-primary);
+}
+.endButton:active { transform: translateY(1px); }
 
 .iconButton {
   display: grid;
@@ -189,6 +223,22 @@
 .composerFoot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 12px; padding: 6px 2px 0; color: var(--dsw-alias-label-quaternary); font-size: 9px; line-height: 12px; }
 .composerFoot span:last-child { margin-left: auto; text-align: right; }
 .sendError { margin: 0 2px 7px; color: var(--dsw-alias-state-error-primary); font-size: 11px; line-height: 16px; }
+
+.confirmationFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.destructiveButton {
+  border-color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+.destructiveButton:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
 
 @keyframes drawer-in { from { opacity: 0; transform: scale(.99); } to { opacity: 1; transform: none; } }
 @keyframes sign-pulse { from { opacity: .32; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }

@@ -6,7 +6,8 @@ export type SideChatLocaleKey =
   | 'drawer.emptyBody' | 'drawer.placeholder' | 'drawer.send' | 'drawer.stop' | 'drawer.retry'
   | 'drawer.close' | 'drawer.discard' | 'drawer.you' | 'drawer.assistant' | 'drawer.reading'
   | 'drawer.contextNote' | 'drawer.error' | 'drawer.expiredTitle' | 'drawer.expiredBody'
-  | 'drawer.restart' | 'drawer.shortcut'
+  | 'drawer.restart' | 'drawer.shortcut' | 'drawer.minimize' | 'drawer.end' | 'drawer.endTitle'
+  | 'drawer.endBody' | 'drawer.endCancel' | 'drawer.endConfirm' | 'drawer.ending'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap { 'side-chat': SideChatLocaleKey }
@@ -26,6 +27,10 @@ export const en: Record<SideChatLocaleKey, string> = {
   'drawer.expiredTitle': 'Side Chat ended',
   'drawer.expiredBody': 'This Side Chat ended after 30 minutes parked and idle.',
   'drawer.restart': 'Start again', 'drawer.shortcut': '⌘⇧.',
+  'drawer.minimize': 'Minimize Side Chat', 'drawer.end': 'End Side Chat',
+  'drawer.endTitle': 'End Side Chat?',
+  'drawer.endBody': "Ending removes this Side Chat's retained context and draft from the plugin, so it cannot be resumed. The main conversation is not affected.",
+  'drawer.endCancel': 'Cancel', 'drawer.endConfirm': 'End and clear', 'drawer.ending': 'Ending…',
 }
 
 export const zh: Record<SideChatLocaleKey, string> = {
@@ -42,4 +47,8 @@ export const zh: Record<SideChatLocaleKey, string> = {
   'drawer.expiredTitle': '侧边对话已结束',
   'drawer.expiredBody': '这个侧边对话已在后台空闲 30 分钟后结束。',
   'drawer.restart': '重新开始', 'drawer.shortcut': '⌘⇧.',
+  'drawer.minimize': '收起侧边对话', 'drawer.end': '结束侧边对话',
+  'drawer.endTitle': '结束侧边对话？',
+  'drawer.endBody': '结束后，这段侧边对话的上下文和草稿将无法继续恢复；主会话不会受到影响。',
+  'drawer.endCancel': '取消', 'drawer.endConfirm': '结束并清除', 'drawer.ending': '正在结束…',
 }
