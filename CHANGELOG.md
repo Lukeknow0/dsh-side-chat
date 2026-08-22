@@ -3,6 +3,11 @@
 ## 0.2.0
 
 - Publish the package as `@lukeknow0/dsh-side-chat`.
+- Integrate Better Sidebar native tabs automatically when available, while keeping the collision-aware overlay drawer as the optional-integration fallback.
+- Preserve transcript and draft when Side Chat is minimized, dismissed with Escape, closed as a native tab, or toggled with the visibility shortcut.
+- Require confirmation for the internal End action, which removes resumability immediately once confirmed.
+- Start parked expiry only when both parent and child are idle; any activity restarts the next both-idle interval at a full 30 minutes.
+- Limit durable physical deletion claims to public DSH cleanup support.
 - Park Side Chats per parent instead of closing them when tasks switch.
 - Restore retained transcripts automatically when returning to a parent task.
 - Reattach refreshed clients to the retained Host child with token adoption.

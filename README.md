@@ -28,13 +28,13 @@
 
 Long coding conversations accumulate decisions, plans, and in-flight work. A small clarification can pull the main agent away from that trajectory. Side Chat gives the clarification its own child runtime while keeping the parent visible and independent.
 
-- **One-click drawer:** additive header action plus a responsive overlay that chooses a full rail, compact rail, or bottom sheet.
-- **Collision-aware placement:** measures the rendered AppFrame, native sidebar/details, sibling overlays, and marked portal controls without replacing a native slot.
+- **Adaptive presentation:** Better Sidebar integration is automatic when its native tab capabilities are available, but it is optional. Without Better Sidebar, Side Chat uses the collision-aware overlay drawer.
+- **Collision-aware drawer fallback:** measures the rendered AppFrame, native sidebar/details, sibling overlays, and marked portal controls without replacing a native slot; it chooses a full rail, compact rail, or bottom sheet.
 - **Context inheritance:** forks only through the latest completed `turn/end`, never through a half-finished turn.
 - **Parent independence:** the main conversation keeps running and receives no report or follow-up from the child.
 - **Read-only by construction:** sandbox mode, approval policy, model-visible allowlist, and an execution-time deny-by-default guard.
-- **Per-task retention:** switching conversations parks the Side Chat instead of deleting it; returning restores the transcript and live child.
-- **Explicit lifecycle:** visible or generating chats stay alive; close ends immediately, while 30 minutes parked and idle triggers Host-owned cleanup.
+- **Non-destructive hiding:** minimize, Escape, native tab close, and the visibility shortcut preserve the transcript and draft; returning restores the live child.
+- **Explicit lifecycle:** internal **End** asks for confirmation. A confirmed End removes resumability immediately; otherwise, the Host starts its 30-minute parked lease only when both parent and child are idle.
 - **Live transcript:** the Host projects only child-local messages while the drawer uses an adaptive 220–700 ms refresh loop.
 - **English and Chinese UI:** follows the active Harness locale.
 - **Keyboard friendly:** press `Cmd/Ctrl + Shift + .` to open or close.
@@ -77,9 +77,9 @@ pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-chat
 2. Select **Side Chat** in the conversation header, or press `Cmd/Ctrl + Shift + .`.
 3. Ask a focused side question. The drawer can inspect inherited context and read-only resources. Its placement adapts without remounting when panels or the viewport change.
 4. Switch tasks freely: the drawer is parked by parent and reappears with its transcript when you return.
-5. Close the drawer with the close button, Escape, the shortcut, or the header action when you want to end that Side Chat.
+5. Use Minimize, Escape, the native tab close, the header action, or `Cmd/Ctrl + Shift + .` to hide Side Chat without losing its transcript or draft. To end it, choose the internal **End** control and confirm.
 
-A parent can own one retained Side Chat at a time. Visible drawers and actively generating children do not consume the lease. After the drawer is parked or detached and the child is idle, the Host keeps it for 30 minutes. Explicit close ends it immediately. Reloading the page can reattach to the retained Host conversation when you open Side Chat again.
+A parent can own one retained Side Chat at a time. The parked countdown starts only after both parent and child are idle. If either becomes active during that countdown, the next transition to both idle starts a fresh 30 minutes. Hiding preserves resumability; a confirmed internal End removes it immediately. Reloading the page can reattach to a retained Host conversation while its lease remains valid.
 
 ## Safety model
 
@@ -96,7 +96,7 @@ The tool guard is the final authority. Adding a new tool to Harness does not sil
 
 ### Important cleanup disclosure
 
-**Temporary does not mean guaranteed physical erasure on DSH 0.1.0-rc.7.** That release exposes no public API for deleting a durable session log. On explicit close or idle expiry, this plugin:
+**Temporary does not mean guaranteed physical erasure on DSH 0.1.0-rc.7.** Durable physical erasure remains limited to public DSH cleanup support; that release exposes no public API for deleting a durable session log. On confirmed internal End or idle expiry, this plugin:
 
 1. removes client admission and ignores late callbacks;
 2. aborts a pending start or cancels active work;
@@ -130,9 +130,9 @@ sequenceDiagram
   Note over P,C: Parent and child run independently
   U->>D: Switch parent task
   D->>D: Park drawer state by parent
-  Note over D,H: Visible/running stays alive; parked + idle gets 30 min
+  Note over D,H: Countdown starts only when parent + child are idle; activity resets it to 30 min
   U->>D: Return to parent and restore transcript
-  U->>D: Close
+  U->>D: Confirm internal End
   D->>H: close(chatToken)
   H->>C: abort, cancel, dispose, archive
 ```
@@ -188,7 +188,7 @@ The drawer itself uses official DSH tokens and primitives, so it follows the act
 
 ## Status
 
-This is an MVP and the public API surface may evolve before 1.0. The intended invariants are stable: safe completed-turn fork, no writes, no parent mutation, one retained Side Chat per parent, task-switch restoration, and cleanup on explicit close or idle expiry.
+This is an MVP and the public API surface may evolve before 1.0. The intended invariants are stable: safe completed-turn fork, no writes, no parent mutation, one retained Side Chat per parent, non-destructive hiding and restoration, confirmed internal End, and cleanup on idle expiry.
 
 ## License and attribution
 
