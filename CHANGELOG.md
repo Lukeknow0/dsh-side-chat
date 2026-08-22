@@ -2,6 +2,7 @@
 
 ## 0.2.0
 
+- Publish the package as `@lukeknow0/dsh-side-chat`.
 - Park Side Chats per parent instead of closing them when tasks switch.
 - Restore retained transcripts automatically when returning to a parent task.
 - Reattach refreshed clients to the retained Host child with token adoption.

@@ -1,5 +1,5 @@
 {
-  "name": "dsh-side-chat",
+  "name": "@lukeknow0/dsh-side-chat",
   "version": "0.2.0",
   "description": "Codex-style temporary side conversations for DeepSeek Harness.",
   "keywords": [
