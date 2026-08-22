@@ -115,15 +115,17 @@
 }
 
 .endButton {
-  min-height: 28px;
-  padding: 0 9px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
 }
 .endButton:hover {
   border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 35%, transparent);
@@ -131,6 +133,12 @@
   color: var(--dsw-alias-state-error-primary);
 }
 .endButton:active { transform: translateY(1px); }
+
+.headerGlyph {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
 
 .iconButton {
   display: grid;

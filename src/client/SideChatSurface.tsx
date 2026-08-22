@@ -3,8 +3,7 @@ import {
 } from 'react'
 import type { SessionFace, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  Button, IconCloseOutline16, IconLoadingOutline16, IconSendOutline16, IconStopFill16,
-  MarkdownText, Modal,
+  Button, IconLoadingOutline16, IconSendOutline16, IconStopFill16, MarkdownText, Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SideChatController } from './controller.ts'
@@ -53,18 +52,45 @@ export function SideChatSurface({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const confirmationFooterRef = useRef<HTMLDivElement>(null)
+  const endButtonRef = useRef<HTMLButtonElement>(null)
+  const composerFocusTimerRef = useRef<number | undefined>(undefined)
+  const confirmEndRef = useRef(confirmEnd)
+  const restoreEndFocusRef = useRef(false)
+  const endingRef = useRef(false)
+  confirmEndRef.current = confirmEnd
 
   const messages = state.messages
   const partial = state.partial
 
   useEffect(() => {
-    if (state.phase === 'open') window.setTimeout(() => inputRef.current?.focus(), 120)
+    if (state.phase !== 'open' || confirmEndRef.current) return
+    const timer = window.setTimeout(() => {
+      if (composerFocusTimerRef.current !== timer) return
+      composerFocusTimerRef.current = undefined
+      if (confirmEndRef.current) return
+      inputRef.current?.focus()
+    }, 120)
+    composerFocusTimerRef.current = timer
+    return () => {
+      window.clearTimeout(timer)
+      if (composerFocusTimerRef.current === timer) composerFocusTimerRef.current = undefined
+    }
   }, [state.phase])
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages.length, partial])
   useEffect(() => {
-    if (!confirmEnd) return
+    if (!confirmEnd) {
+      if (restoreEndFocusRef.current) {
+        restoreEndFocusRef.current = false
+        endButtonRef.current?.focus()
+      }
+      return
+    }
+    if (composerFocusTimerRef.current !== undefined) {
+      window.clearTimeout(composerFocusTimerRef.current)
+      composerFocusTimerRef.current = undefined
+    }
     confirmationFooterRef.current?.querySelector('button')?.focus()
     const containEscape = (event: globalThis.KeyboardEvent): void => {
       if (event.key === 'Escape') event.stopPropagation()
@@ -86,14 +112,22 @@ export function SideChatSurface({
     }
   }
   const end = async (): Promise<void> => {
-    if (ending) return
+    if (endingRef.current) return
+    endingRef.current = true
     setEnding(true)
     try {
       await onEnd()
+      restoreEndFocusRef.current = true
       setConfirmEnd(false)
     } finally {
+      endingRef.current = false
       setEnding(false)
     }
+  }
+  const dismissEnd = (): void => {
+    if (endingRef.current) return
+    restoreEndFocusRef.current = true
+    setConfirmEnd(false)
   }
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
@@ -127,13 +161,14 @@ export function SideChatSurface({
         </div>
         <div className={css.headerActions}>
           <button
+            ref={endButtonRef}
             className={css.endButton}
             type="button"
             aria-label={t('drawer.end')}
             title={t('drawer.end')}
             onClick={() => { setConfirmEnd(true) }}
           >
-            {t('drawer.end')}
+            <span className={css.headerGlyph} aria-hidden="true">×</span>
           </button>
           <button
             className={css.iconButton}
@@ -142,7 +177,7 @@ export function SideChatSurface({
             title={t('drawer.minimize')}
             onClick={onMinimize}
           >
-            <IconCloseOutline16 />
+            <span className={css.headerGlyph} aria-hidden="true">—</span>
           </button>
         </div>
       </header>
@@ -246,7 +281,7 @@ export function SideChatSurface({
 
       <Modal
         open={confirmEnd}
-        onClose={() => { if (!ending) setConfirmEnd(false) }}
+        onClose={dismissEnd}
         title={t('drawer.endTitle')}
         closeLabel={t('drawer.endCancel')}
         description={t('drawer.endBody')}
@@ -256,7 +291,7 @@ export function SideChatSurface({
               size="sm"
               variant="outline"
               disabled={ending}
-              onClick={() => { setConfirmEnd(false) }}
+              onClick={dismissEnd}
             >
               {t('drawer.endCancel')}
             </Button>
