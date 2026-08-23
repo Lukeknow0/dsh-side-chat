@@ -7,15 +7,18 @@ export const SIDE_CHAT_SIGN_CLIP_X = 25
 
 export interface SideChatSignProps {
   className?: string | undefined
+  size?: number
   title?: string
 }
 
-export function SideChatSign({ className, title }: SideChatSignProps) {
+export function SideChatSign({ className, size, title }: SideChatSignProps) {
   const clipId = `dsh-side-chat-sign-${useId().replaceAll(':', '')}`
   return (
     <svg
       className={className}
       viewBox={SIDE_CHAT_SIGN_VIEW_BOX}
+      width={size}
+      height={size}
       fill="none"
       role={title === undefined ? undefined : 'img'}
       aria-hidden={title === undefined ? true : undefined}

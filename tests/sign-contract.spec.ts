@@ -75,7 +75,7 @@ describe('Parallel Side Branch sign contract', () => {
     const surface = await readFile(new URL('../src/client/SideChatSurface.tsx', import.meta.url), 'utf8')
     const styles = await readFile(new URL('../src/client/side-chat.module.css', import.meta.url), 'utf8')
     expect(surface).toContain("import { SideChatSign } from './SideChatSign.tsx'")
-    expect(surface.match(/<SideChatSign\b/g)).toHaveLength(3)
+    expect(surface.match(/<SideChatSign\b/g)).toHaveLength(2)
     expect(surface).not.toContain('function RailMark')
     expect(styles).not.toContain('.railMark > span')
     expect(styles).not.toContain('.loadingRails span')

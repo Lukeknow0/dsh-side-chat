@@ -42,7 +42,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   },
 }))
 
-const snapshot: SideChatClientState = {
+const openSnapshot: SideChatClientState = {
   epoch: 1,
   phase: 'open',
   parentSessionId: 'parent' as never,
@@ -53,6 +53,8 @@ const snapshot: SideChatClientState = {
   partial: '',
   running: false,
 }
+
+let currentSnapshot = openSnapshot
 
 function input(textarea: HTMLTextAreaElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
@@ -72,9 +74,10 @@ describe('SideChatSurface controls', () => {
     document.body.append(mount)
     viewStore = new SideChatViewStore()
     viewStore.show('parent', 'drawer')
+    currentSnapshot = openSnapshot
     controller = {
       subscribe: () => () => {},
-      getSnapshot: () => snapshot,
+      getSnapshot: () => currentSnapshot,
       binding: () => undefined,
       close: vi.fn(async () => {}),
       send: vi.fn(async () => ({ ok: true as const })),
@@ -111,6 +114,35 @@ describe('SideChatSurface controls', () => {
       )
     })
   }
+
+  it('keeps the composer interactive while opening without context status copy', async () => {
+    currentSnapshot = {
+      ...openSnapshot,
+      phase: 'starting',
+      chatToken: '00000000-0000-4000-8000-000000000001',
+    }
+    renderSurface()
+
+    const textarea = mount.querySelector('textarea') as HTMLTextAreaElement
+    expect(textarea).not.toBeNull()
+    expect(mount.textContent).not.toContain('drawer.opening')
+    expect(mount.textContent).not.toContain('drawer.reading')
+
+    act(() => { input(textarea, 'Send immediately') })
+    await act(async () => {
+      mount.querySelector<HTMLElement>('[aria-label="drawer.send"]')?.click()
+    })
+
+    expect(controller.send).toHaveBeenCalledWith('Send immediately')
+  })
+
+  it('keeps normal stop controls without showing a context-reading status', () => {
+    currentSnapshot = { ...openSnapshot, running: true }
+    renderSurface()
+
+    expect(mount.textContent).not.toContain('drawer.reading')
+    expect(mount.querySelector('[aria-label="drawer.stop"]')).not.toBeNull()
+  })
 
   it('minimizes without closing and preserves the draft', () => {
     renderSurface()

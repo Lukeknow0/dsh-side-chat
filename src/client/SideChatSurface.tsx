@@ -3,7 +3,7 @@ import {
 } from 'react'
 import type { SessionFace, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  Button, IconLoadingOutline16, IconSendOutline16, IconStopFill16, MarkdownText, Modal,
+  Button, IconSendOutline16, IconStopFill16, MarkdownText, Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SideChatController } from './controller.ts'
@@ -63,7 +63,7 @@ export function SideChatSurface({
   const partial = state.partial
 
   useEffect(() => {
-    if (state.phase !== 'open' || confirmEndRef.current) return
+    if ((state.phase !== 'starting' && state.phase !== 'open') || confirmEndRef.current) return
     const timer = window.setTimeout(() => {
       if (composerFocusTimerRef.current !== timer) return
       composerFocusTimerRef.current = undefined
@@ -100,7 +100,8 @@ export function SideChatSurface({
   }, [confirmEnd])
 
   const running = state.running
-  const canSend = state.phase === 'open' && !running && draft.trim() !== ''
+  const interactive = state.phase === 'starting' || state.phase === 'open'
+  const canSend = interactive && !running && draft.trim() !== ''
   const send = async (): Promise<void> => {
     if (!canSend) return
     const text = draft.trim()
@@ -189,12 +190,6 @@ export function SideChatSurface({
       </div>
 
       <div className={css.transcript} ref={scrollRef} aria-live="polite">
-        {state.phase === 'starting' && (
-          <div className={css.loadingState}>
-            <SideChatSign className={css.loadingMark} />
-            <strong>{t('drawer.opening')}</strong>
-          </div>
-        )}
         {state.phase === 'error' && (
           <div className={css.errorState}>
             <span className={css.errorRule} />
@@ -205,7 +200,7 @@ export function SideChatSurface({
             </Button>
           </div>
         )}
-        {state.phase === 'open' && messages.length === 0 && partial === '' && !running && (
+        {interactive && messages.length === 0 && partial === '' && !running && (
           <div className={css.emptyState}>
             <SideChatSign className={css.railMark} />
             <strong>{t('drawer.emptyTitle')}</strong>
@@ -226,12 +221,9 @@ export function SideChatSurface({
             <MarkdownText text={partial} streaming />
           </article>
         )}
-        {running && partial === '' && (
-          <div className={css.readingState}><IconLoadingOutline16 /> {t('drawer.reading')}</div>
-        )}
       </div>
 
-      {state.phase === 'open' && (
+      {interactive && (
         <footer className={css.composerArea}>
           {sendError !== null && <div className={css.sendError}>{sendError}</div>}
           <div className={css.composer}>

@@ -176,6 +176,20 @@ describe('SideChatPresentation', () => {
     dispose()
   })
 
+  it('honors the native tab icon size supplied by Better Sidebar', () => {
+    const fake = new FakeBetterSidebar()
+    presentation.attachBetterSidebar(fake.service())
+    const icon = fake.descriptor?.icon
+    const rendered = typeof icon === 'function' ? icon(16) : icon
+    root = createRoot(mount)
+
+    act(() => { root?.render(<>{rendered}</>) })
+
+    const svg = mount.querySelector('svg')
+    expect(svg?.getAttribute('width')).toBe('16')
+    expect(svg?.getAttribute('height')).toBe('16')
+  })
+
   it('treats native tab close as minimize', () => {
     const fake = new FakeBetterSidebar()
     presentation.attachBetterSidebar(fake.service())

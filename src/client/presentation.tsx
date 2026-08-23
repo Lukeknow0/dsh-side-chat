@@ -181,7 +181,7 @@ export class SideChatPresentation {
     const descriptor: TabDescriptor = {
       id: SIDE_CHAT_TAB_TYPE,
       title: () => this.ctx.locale.bind(NS)('drawer.title'),
-      icon: () => <SideChatSign />,
+      icon: size => <SideChatSign size={size} />,
       single: true,
       hidden: false,
       onClose: (_tab, scope: SessionScope) => {
