@@ -53,9 +53,15 @@ function closeResult() {
   } } }
 }
 
+function sendResult(chatToken: string, requestId: string, messageId = 'queued-1') {
+  return { ok: true as const, value: { ok: true as const, value: {
+    chatToken, requestId, accepted: true as const, messageId,
+  } } }
+}
+
 function readResult(
   chatToken: string,
-  messages: { id: string, role: 'assistant', text: string }[] = [],
+  messages: { id: string, role: 'user' | 'assistant', text: string }[] = [],
   expiresAt = EXPIRES_AT,
   running = false,
 ) {
@@ -75,11 +81,167 @@ function notOpenResult() {
   } } }
 }
 
+function hostFailure(code: 'compatibility' | 'internal', message: string) {
+  return { ok: true as const, value: { ok: false as const, error: { code, message } } }
+}
+
 function transportFailure(message = 'Network unavailable.') {
   return { ok: false as const, error: { code: 'transport-failure', message } }
 }
 
 describe('SideChatController lifecycle', () => {
+  it('accepts and renders the first message before start admission finishes', async () => {
+    const env = harness()
+    const start = deferred<ReturnType<typeof success>>()
+    const send = vi.fn(async ({ chatToken, requestId }: { chatToken: string, requestId: string }) => (
+      sendResult(chatToken, requestId)
+    ))
+    const remote = {
+      start: vi.fn(() => start.promise),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => readResult(chatToken)),
+      send,
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    const opening = controller.open('parent' as SessionId)
+    const token = controller.getSnapshot().chatToken!
+    const result = await controller.send('First question')
+
+    expect(result).toEqual({ ok: true })
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'starting',
+      running: true,
+      messages: [{ role: 'user', text: 'First question' }],
+    })
+    expect(send).not.toHaveBeenCalled()
+
+    start.resolve(success(token))
+    await opening
+    await vi.waitFor(() => { expect(send).toHaveBeenCalledTimes(1) })
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ chatToken: token, text: 'First question' }))
+    await controller.dispose()
+  })
+
+  it('keeps the first message visible when start admission itself fails', async () => {
+    const env = harness()
+    const start = deferred<ReturnType<typeof hostFailure>>()
+    const remote = {
+      start: vi.fn(() => start.promise),
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    const opening = controller.open('parent' as SessionId)
+    await controller.send('Keep me on failure')
+    start.resolve(hostFailure('compatibility', 'factory exploded'))
+    await opening
+
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'error',
+      error: 'factory exploded',
+      messages: [{ role: 'user', text: 'Keep me on failure' }],
+    })
+    await controller.dispose()
+  })
+
+  it('keeps an optimistic message visible while Host admission is pending', async () => {
+    vi.useFakeTimers()
+    const env = harness()
+    const admitted = deferred<ReturnType<typeof sendResult>>()
+    const send = vi.fn((_request: { chatToken: string, requestId: string, text: string }) => admitted.promise)
+    const remote = {
+      start: vi.fn(async ({ chatToken }: { chatToken: string }) => success(chatToken)),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => readResult(chatToken)),
+      send,
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    await controller.open('parent' as SessionId)
+    await Promise.resolve()
+    const token = controller.getSnapshot().chatToken!
+    const sending = controller.send('Stay visible')
+    await vi.advanceTimersByTimeAsync(700)
+    const messagesWhilePending = controller.getSnapshot().messages
+
+    const requestId = send.mock.calls[0]![0].requestId
+    admitted.resolve(sendResult(token, requestId))
+    await sending
+
+    expect(messagesWhilePending).toEqual([
+      expect.objectContaining({ role: 'user', text: 'Stay visible' }),
+    ])
+    await controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('surfaces a background opening failure without dropping the accepted message', async () => {
+    const env = harness()
+    let reads = 0
+    const remote = {
+      start: vi.fn(async ({ chatToken }: { chatToken: string }) => success(chatToken)),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => {
+        reads += 1
+        return reads === 1
+          ? readResult(chatToken)
+          : hostFailure('compatibility', 'factory exploded')
+      }),
+      send: vi.fn(async ({ chatToken, requestId }: { chatToken: string, requestId: string }) => (
+        sendResult(chatToken, requestId)
+      )),
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await controller.open('parent' as SessionId)
+    await vi.waitFor(() => { expect(reads).toBe(1) })
+    await controller.send('Keep this question')
+    await vi.waitFor(() => { expect(controller.getSnapshot().phase).toBe('error') })
+
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'error',
+      error: 'factory exploded',
+      messages: [{ role: 'user', text: 'Keep this question' }],
+    })
+    warn.mockRestore()
+    await controller.dispose()
+  })
+
+  it('retries a retained first message after background opening fails', async () => {
+    const env = harness()
+    let starts = 0
+    const send = vi.fn(async ({ chatToken, requestId }: { chatToken: string, requestId: string }) => (
+      sendResult(chatToken, requestId, `queued-${send.mock.calls.length}`)
+    ))
+    const remote = {
+      start: vi.fn(async ({ chatToken }: { chatToken: string }) => {
+        starts += 1
+        return success(chatToken)
+      }),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => (
+        starts === 1 && send.mock.calls.length > 0
+          ? hostFailure('compatibility', 'factory exploded')
+          : readResult(chatToken)
+      )),
+      send,
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    await controller.open('parent' as SessionId)
+    await controller.send('Retry me')
+    await vi.waitFor(() => { expect(controller.getSnapshot().phase).toBe('error') })
+    await controller.retry()
+    await vi.waitFor(() => { expect(send).toHaveBeenCalledTimes(2) })
+
+    expect(controller.getSnapshot().messages).toContainEqual(
+      expect.objectContaining({ role: 'user', text: 'Retry me' }),
+    )
+    await controller.dispose()
+  })
+
   it('keeps repeated open for the active parent idempotent', async () => {
     const env = harness()
     const remote = {
@@ -261,6 +423,36 @@ describe('SideChatController lifecycle', () => {
     expect(close).not.toHaveBeenCalled()
     env.switchTo('parent')
     await vi.waitFor(() => { expect(controller.getSnapshot()).toMatchObject({ phase: 'open', chatToken: token }) })
+    await controller.dispose()
+  })
+
+  it('keeps an optimistic opening message when switching away and back', async () => {
+    const env = harness()
+    const start = deferred<ReturnType<typeof success>>()
+    const remote = {
+      start: vi.fn(() => start.promise),
+      read: vi.fn(async ({ chatToken }: { chatToken: string }) => readResult(chatToken)),
+      send: vi.fn(async ({ chatToken, requestId }: { chatToken: string, requestId: string }) => (
+        sendResult(chatToken, requestId)
+      )),
+      close: vi.fn(async () => closeResult()),
+    } as unknown as SideChatRemoteNamespace
+    const controller = new SideChatController(env.ctx, remote)
+
+    const opening = controller.open('parent' as SessionId)
+    const token = controller.getSnapshot().chatToken!
+    await controller.send('Follow this parent')
+    env.switchTo('other')
+    env.switchTo('parent')
+
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'starting',
+      messages: [{ role: 'user', text: 'Follow this parent' }],
+      running: true,
+    })
+
+    start.resolve(success(token))
+    await opening
     await controller.dispose()
   })
 

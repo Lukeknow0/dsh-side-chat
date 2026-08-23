@@ -35,6 +35,16 @@ interface RestoreAttempt {
   disposition: OpeningDisposition
 }
 
+interface OptimisticSend {
+  readonly parentSessionId: SessionId
+  readonly chatToken: string
+  readonly requestId: string
+  readonly localMessageId: string
+  readonly text: string
+  messageId?: string
+  admission?: Promise<SideChatCommandResult>
+}
+
 const EXPIRED_MESSAGE = 'This Side Chat ended after 30 minutes parked and idle.'
 
 const EMPTY_TRANSCRIPT = Object.freeze({
@@ -62,6 +72,7 @@ export class SideChatController {
   private readonly openingByParent = new Map<string, OpeningAttempt>()
   private readonly openingByToken = new Map<string, OpeningAttempt>()
   private readonly restoringByParent = new Map<string, RestoreAttempt>()
+  private readonly optimisticByToken = new Map<string, OptimisticSend>()
   private closing: Promise<void> | undefined
   private pollTimer: ReturnType<typeof setTimeout> | undefined
   private readonly disposeList: () => void
@@ -119,6 +130,7 @@ export class SideChatController {
       if (!result.ok) throw new Error(remoteFailure(result.error))
       if (!result.value.ok) throw new Error(result.value.error.message)
       const value = result.value.value
+      const optimistic = this.optimisticByToken.get(value.chatToken)
       const openState: SideChatClientState = {
         epoch: this.nextEpoch(),
         phase: 'open',
@@ -128,9 +140,9 @@ export class SideChatController {
         seedLength: value.seedLength,
         revision: value.seedLength,
         expiresAt: value.expiresAt,
-        messages: [],
+        messages: optimistic === undefined ? [] : [this.optimisticMessage(optimistic)],
         partial: '',
-        running: false,
+        running: optimistic !== undefined,
       }
       if (attempt.disposition === 'closed') {
         void this.remote.close({ chatToken: value.chatToken })
@@ -140,18 +152,22 @@ export class SideChatController {
       if (attempt.disposition === 'parked'
         || (current !== undefined && keyOf(current) !== keyOf(parentSessionId))) {
         this.parkedByParent.set(keyOf(parentSessionId), openState)
+        if (optimistic !== undefined) void this.admitOptimistic(optimistic, true)
         return
       }
       this.publish(openState)
+      if (optimistic !== undefined) void this.admitOptimistic(optimistic, true)
       void this.poll(openState.epoch)
     } catch (error: unknown) {
       if (attempt.disposition === 'closed') return
+      const optimistic = this.optimisticByToken.get(chatToken)
       const errorState: SideChatClientState = {
         epoch: this.nextEpoch(),
         phase: 'error',
         parentSessionId,
         chatToken,
         ...EMPTY_TRANSCRIPT,
+        messages: optimistic === undefined ? [] : [this.optimisticMessage(optimistic)],
         error: error instanceof Error ? error.message : String(error),
       }
       if (attempt.disposition === 'parked') this.parkedByParent.set(keyOf(parentSessionId), errorState)
@@ -165,19 +181,29 @@ export class SideChatController {
   }
 
   async send(text: string): Promise<SideChatCommandResult> {
-    const token = this.state.chatToken
-    if (this.state.phase !== 'open' || token === undefined) {
+    const snapshot = this.state
+    const token = snapshot.chatToken
+    const parentSessionId = snapshot.parentSessionId
+    if ((snapshot.phase !== 'starting' && snapshot.phase !== 'open')
+      || token === undefined || parentSessionId === undefined || snapshot.running) {
       return { ok: false, error: 'This Side Chat is no longer open.' }
     }
-    try {
-      const result = await this.remote.send({ chatToken: token, requestId: crypto.randomUUID(), text })
-      if (!result.ok) return { ok: false, error: remoteFailure(result.error) }
-      if (!result.value.ok) return { ok: false, error: result.value.error.message }
-      void this.poll(this.state.epoch)
-      return { ok: true }
-    } catch (error: unknown) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    const requestId = crypto.randomUUID()
+    const optimistic: OptimisticSend = {
+      parentSessionId,
+      chatToken: token,
+      requestId,
+      localMessageId: `optimistic:${requestId}`,
+      text,
     }
+    this.optimisticByToken.set(token, optimistic)
+    this.publish({
+      ...snapshot,
+      messages: [...snapshot.messages, this.optimisticMessage(optimistic)],
+      running: true,
+    })
+    if (snapshot.phase === 'starting') return { ok: true }
+    return this.admitOptimistic(optimistic, false)
   }
 
   async cancel(): Promise<SideChatCommandResult> {
@@ -198,6 +224,9 @@ export class SideChatController {
   async retry(): Promise<void> {
     const parent = this.state.parentSessionId
     if (parent === undefined) return
+    const retainedText = this.state.chatToken === undefined
+      ? undefined
+      : this.optimisticByToken.get(this.state.chatToken)?.text
     const key = keyOf(parent)
     if (this.state.phase === 'error' && this.parkedByParent.has(key)) {
       this.publish(this.closedState())
@@ -206,6 +235,9 @@ export class SideChatController {
     }
     await this.close()
     await this.open(parent)
+    if (retainedText !== undefined && this.state.phase === 'open') {
+      await this.send(retainedText)
+    }
   }
 
   async close(): Promise<void> {
@@ -223,6 +255,7 @@ export class SideChatController {
       }
     }
     if (token !== undefined) {
+      this.optimisticByToken.delete(token)
       const attempt = this.openingByToken.get(token)
       if (attempt !== undefined) attempt.disposition = 'closed'
     }
@@ -236,6 +269,96 @@ export class SideChatController {
       .finally(() => { if (this.closing === close) this.closing = undefined })
     this.closing = close
     await close
+  }
+
+  private optimisticMessage(optimistic: OptimisticSend): SideChatTranscriptMessage {
+    return {
+      id: optimistic.messageId ?? optimistic.localMessageId,
+      role: 'user',
+      text: optimistic.text,
+    }
+  }
+
+  private mergeOptimisticMessages(
+    messages: readonly SideChatTranscriptMessage[],
+    optimistic: OptimisticSend,
+  ): readonly SideChatTranscriptMessage[] {
+    const hostId = optimistic.messageId
+    const withoutLocal = messages.filter(message => message.id !== optimistic.localMessageId)
+    if (hostId !== undefined && withoutLocal.some(message => message.id === hostId)) return withoutLocal
+    return [...withoutLocal, this.optimisticMessage(optimistic)]
+  }
+
+  private updateTokenState(
+    chatToken: string,
+    update: (state: SideChatClientState) => SideChatClientState,
+  ): void {
+    if (this.state.chatToken === chatToken) {
+      this.publish(update(this.state))
+      return
+    }
+    for (const [parentKey, parked] of this.parkedByParent) {
+      if (parked.chatToken !== chatToken) continue
+      this.parkedByParent.set(parentKey, Object.freeze(update(parked)))
+      return
+    }
+  }
+
+  private admitOptimistic(
+    optimistic: OptimisticSend,
+    retainOnFailure: boolean,
+  ): Promise<SideChatCommandResult> {
+    if (optimistic.admission !== undefined) return optimistic.admission
+    const admission = (async (): Promise<SideChatCommandResult> => {
+      let error: string | undefined
+      try {
+        const result = await this.remote.send({
+          chatToken: optimistic.chatToken,
+          requestId: optimistic.requestId,
+          text: optimistic.text,
+        })
+        if (!result.ok) error = remoteFailure(result.error)
+        else if (!result.value.ok) error = result.value.error.message
+        else {
+          optimistic.messageId = result.value.value.messageId
+          this.updateTokenState(optimistic.chatToken, state => ({
+            ...state,
+            messages: this.mergeOptimisticMessages(state.messages, optimistic),
+            running: true,
+          }))
+          if (this.state.phase === 'open' && this.state.chatToken === optimistic.chatToken) {
+            void this.poll(this.state.epoch)
+          }
+          return { ok: true }
+        }
+      } catch (caught: unknown) {
+        error = caught instanceof Error ? caught.message : String(caught)
+      }
+
+      if (this.optimisticByToken.get(optimistic.chatToken) === optimistic) {
+        if (retainOnFailure) {
+          this.updateTokenState(optimistic.chatToken, state => ({
+            ...state,
+            phase: 'error',
+            messages: this.mergeOptimisticMessages(state.messages, optimistic),
+            running: false,
+            error,
+          }))
+        } else {
+          this.optimisticByToken.delete(optimistic.chatToken)
+          this.updateTokenState(optimistic.chatToken, state => ({
+            ...state,
+            messages: state.messages.filter(message => (
+              message.id !== optimistic.localMessageId && message.id !== optimistic.messageId
+            )),
+            running: false,
+          }))
+        }
+      }
+      return { ok: false, error: error ?? 'Side Chat could not accept this message.' }
+    })()
+    optimistic.admission = admission
+    return admission
   }
 
   async dispose(): Promise<void> {
@@ -383,19 +506,35 @@ export class SideChatController {
           }
           return
         }
-        throw new Error(result.value.error.message)
+        this.publish({
+          ...this.state,
+          phase: 'error',
+          running: false,
+          error: result.value.error.message,
+        })
+        return
       }
       const value = result.value.value
-      delay = value.running ? 220 : 700
+      const optimistic = this.optimisticByToken.get(token)
+      const hostHasOptimistic = optimistic?.messageId !== undefined
+        && value.messages.some(message => message.id === optimistic.messageId)
+      if (optimistic !== undefined && hostHasOptimistic && !value.running) {
+        this.optimisticByToken.delete(token)
+      }
+      const messages = optimistic === undefined || (hostHasOptimistic && !value.running)
+        ? value.messages
+        : this.mergeOptimisticMessages(value.messages, optimistic)
+      const running = value.running || (optimistic !== undefined && !(hostHasOptimistic && !value.running))
+      delay = running ? 220 : 700
       const { runningTool: previousRunningTool, ...baseState } = this.state
       void previousRunningTool
       this.publish({
         ...baseState,
         revision: value.revision,
         expiresAt: value.expiresAt,
-        messages: value.messages,
+        messages,
         partial: value.partial,
-        running: value.running,
+        running,
         ...(value.runningTool === undefined ? {} : { runningTool: value.runningTool }),
       })
     } catch (error: unknown) {
@@ -430,12 +569,15 @@ export class SideChatController {
   }
 
   private startingState(attempt: OpeningAttempt): SideChatClientState {
+    const optimistic = this.optimisticByToken.get(attempt.chatToken)
     return {
       epoch: this.nextEpoch(),
       phase: 'starting',
       parentSessionId: attempt.parentSessionId,
       chatToken: attempt.chatToken,
       ...EMPTY_TRANSCRIPT,
+      messages: optimistic === undefined ? [] : [this.optimisticMessage(optimistic)],
+      running: optimistic !== undefined,
     }
   }
 
