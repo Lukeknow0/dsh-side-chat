@@ -156,7 +156,7 @@ def render_hero(size: tuple[int, int], output: str) -> None:
 
     command_y = round(1010 * unit)
     draw.rounded_rectangle((margin, command_y, divider - round(66 * unit), command_y + round(104 * unit)), radius=round(12 * unit), outline="#49504E", width=max(1, round(2 * unit)), fill="#111514")
-    draw.text((margin + round(26 * unit), command_y + round(26 * unit)), "$  dsh plugin --profile web add dsh-side-chat", font=font(MONO, round(24 * unit)), fill=MINT)
+    draw.text((margin + round(26 * unit), command_y + round(26 * unit)), "$  dsh plugin --profile web add @lukeknow0/dsh-side-chat", font=font(MONO, round(22 * unit)), fill=MINT)
 
     tags = ["READ-ONLY FORK", "PARENT STAYS LIVE", "BILINGUAL UI"]
     tx = margin

@@ -5,7 +5,7 @@
 <h1 align="center">dsh-side-chat</h1>
 
 <p align="center">
-  Codex-style temporary side conversations for DeepSeek Harness.
+  A read-only side chat plugin for DeepSeek Harness (DSH) — inherit completed context, ask temporary questions, and keep the parent agent running.
 </p>
 
 <p align="center">
@@ -20,9 +20,19 @@
 
 > **Ask aside. Stay on track.** Open a focused drawer that inherits the completed parent context, ask a temporary question, then close it without writing the exchange back into the main conversation.
 
+## Quick install
+
+```bash
+dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```
+
+Restart the running `dsh web` process after installation, then refresh the existing Harness page.
+
 <p align="center">
   <img src="docs/assets/installed-overview-en.png" alt="Side Chat installed in DeepSeek Harness" width="92%" />
 </p>
+
+_If Side Chat helps you stay focused, consider giving the project a ⭐ — it helps more DSH users find it._
 
 ## Why Side Chat?
 
