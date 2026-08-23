@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - Make the Side Chat composer interactive immediately while completed parent context is prepared silently in the background.
 - Accept and retain the first message before child creation finishes, then deliver it exactly once after the Side Chat boundary.
 - Respect Better Sidebar's requested icon size so the Side Chat mark matches native cards and tabs.
+- Refresh GitHub discovery metadata, README entry points, and corrected hero/social-card branding.
 
 ## 0.3.0
 

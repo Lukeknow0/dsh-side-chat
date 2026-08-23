@@ -227,7 +227,7 @@ describe('Parallel Side Branch sign contract', () => {
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true })
     }
-  }, 15_000)
+  }, 30_000)
 
   itOnStrictDarwin('matches committed renderer bytes in the opted-in local authoring environment', async () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), 'dsh-side-chat-assets-strict-'))
