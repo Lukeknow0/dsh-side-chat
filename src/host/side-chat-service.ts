@@ -23,6 +23,7 @@ import type {
   ReadSideChatResult,
   SendSideChatRequest,
   SendSideChatResult,
+  SideChatError,
   SideChatErrorCode,
   StartSideChatRequest,
   StartSideChatResult,
@@ -94,12 +95,21 @@ interface LiveSideChat {
   readonly seedLength: number
   readonly abort: AbortController
   readonly sentRequests: Map<string, string>
+  readonly pendingByRequest: Map<string, PendingSideChatMessage>
   expiresAt: number
   expiryTimer: ReturnType<typeof setTimeout> | undefined
   leaseBusy: boolean
   handle?: AgentHandle
   creation?: Promise<AgentHandle>
+  openingError?: SideChatError
   closing: boolean
+}
+
+interface PendingSideChatMessage {
+  readonly requestId: string
+  readonly message: ReturnType<typeof createUserMessage>
+  delivered: boolean
+  cancelled: boolean
 }
 
 function failure(code: SideChatErrorCode, message: string): StartSideChatResult {
@@ -126,6 +136,14 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function openingFailure(error: unknown): SideChatError {
+  const message = errorText(error)
+  const code: SideChatErrorCode = message.includes('tool') || message.includes('factory')
+    ? 'compatibility'
+    : 'internal'
+  return { code, message }
+}
+
 function contentText(content: readonly ContentBlock[]): string {
   return content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
 }
@@ -133,13 +151,18 @@ function contentText(content: readonly ContentBlock[]): string {
 function transcript(entry: LiveSideChat): Extract<ReadSideChatResult, { ok: true }>['value'] {
   const events = entry.handle?.agent.session.events.slice(entry.seedLength) ?? []
   const messages: Extract<ReadSideChatResult, { ok: true }>['value']['messages'][number][] = []
+  const messageIds = new Set<string>()
   const finalized = new Set<string>()
   const chunkText = new Map<string, string>()
   let runningTool: string | undefined
   for (const event of events) {
     if (event.type === 'user/message' && event.data.source.kind === 'user') {
       const text = contentText(event.data.content)
-      if (text !== '') messages.push({ id: String(event.data.id), role: 'user', text })
+      if (text !== '') {
+        const id = String(event.data.id)
+        messageIds.add(id)
+        messages.push({ id, role: 'user', text })
+      }
       continue
     }
     if (event.type === 'assistant/chunk') {
@@ -162,13 +185,25 @@ function transcript(entry: LiveSideChat): Extract<ReadSideChatResult, { ok: true
     .filter(([key]) => !finalized.has(key))
     .map(([, text]) => text)
     .join('')
+  for (const [requestId, pending] of entry.pendingByRequest) {
+    const id = String(pending.message.id)
+    if (messageIds.has(id)) {
+      entry.pendingByRequest.delete(requestId)
+      continue
+    }
+    const text = contentText(pending.message.content)
+    if (text !== '') messages.push({ id, role: 'user', text })
+  }
+  const queued = [...entry.pendingByRequest.values()]
+    .some(pending => !pending.cancelled && !pending.delivered)
+  const childRunning = entry.handle?.agent.status === 'running'
   const value = {
     chatToken: entry.chatToken,
     revision: events.at(-1)?.seq ?? entry.seedLength,
     expiresAt: entry.expiresAt,
     messages, partial,
-    running: entry.handle?.agent.status === 'running',
-    ...(entry.handle?.agent.status === 'running' && runningTool !== undefined ? { runningTool } : {}),
+    running: childRunning || queued,
+    ...(childRunning && runningTool !== undefined ? { runningTool } : {}),
   }
   return value
 }
@@ -192,9 +227,10 @@ export class SideChatService extends TypertRemoteService {
   async start(request: StartSideChatRequest): Promise<StartSideChatResult> {
     const duplicate = this.byToken.get(request.chatToken)
     if (duplicate !== undefined && !duplicate.closing) {
-      const handle = duplicate.handle ?? await duplicate.creation?.catch(() => undefined)
-      if (handle !== undefined && !duplicate.closing) {
-        duplicate.handle = handle
+      if (duplicate.openingError !== undefined) {
+        return failure(duplicate.openingError.code, duplicate.openingError.message)
+      }
+      if (duplicate.handle !== undefined || duplicate.creation !== undefined) {
         this.touch(duplicate)
         return this.startValue(duplicate)
       }
@@ -206,13 +242,13 @@ export class SideChatService extends TypertRemoteService {
     if (existingToken !== undefined && existingToken !== request.chatToken) {
       const existing = this.byToken.get(existingToken)
       if (existing !== undefined && !existing.closing) {
-        const handle = existing.handle ?? await existing.creation?.catch(() => undefined)
-        if (handle !== undefined && !existing.closing) {
-          existing.handle = handle
+        if (existing.openingError === undefined
+          && (existing.handle !== undefined || existing.creation !== undefined)) {
           this.adoptToken(existing, request.chatToken)
           this.touch(existing)
           return this.startValue(existing)
         }
+        if (existing.openingError !== undefined) this.forget(existingToken)
       }
       if (this.tokenByParent.get(request.parentSessionId) === existingToken) {
         this.tokenByParent.delete(request.parentSessionId)
@@ -235,6 +271,7 @@ export class SideChatService extends TypertRemoteService {
       seedLength: seed.length,
       abort: new AbortController(),
       sentRequests: new Map(),
+      pendingByRequest: new Map(),
       expiresAt: Date.now() + SIDE_CHAT_IDLE_TTL_MS,
       expiryTimer: undefined,
       leaseBusy: false,
@@ -266,33 +303,38 @@ export class SideChatService extends TypertRemoteService {
         },
       })
       entry.creation = creation
-      const handle = await creation
-      if (entry.closing || this.byToken.get(entry.chatToken) !== entry) {
-        await handle.dispose()
-        return failure('cancelled', 'Side Chat was closed before it finished opening.')
-      }
-      entry.handle = handle
-      handle.agent.inject(createUserMessage({
-        content: [{ type: 'text', text: SIDE_CHAT_BOUNDARY }],
-        source: { kind: 'plugin', plugin: 'dsh-side-chat', form: 'notice', summary: 'Side conversation boundary' },
-      }))
+      void creation.then(handle => {
+        if (entry.closing || this.byToken.get(entry.chatToken) !== entry) return
+        entry.handle = handle
+        handle.agent.inject(createUserMessage({
+          content: [{ type: 'text', text: SIDE_CHAT_BOUNDARY }],
+          source: { kind: 'plugin', plugin: 'dsh-side-chat', form: 'notice', summary: 'Side conversation boundary' },
+        }))
+        for (const pending of entry.pendingByRequest.values()) {
+          if (pending.cancelled || pending.delivered) continue
+          pending.delivered = true
+          handle.agent.followup(pending.message)
+        }
+      }).catch((error: unknown) => {
+        if (!entry.closing && this.byToken.get(entry.chatToken) === entry) {
+          entry.openingError = openingFailure(error)
+        }
+      })
       return this.startValue(entry)
     } catch (error: unknown) {
       this.forget(entry.chatToken)
       if (entry.abort.signal.aborted || entry.closing) return failure('cancelled', 'Side Chat opening was cancelled.')
-      const message = errorText(error)
-      const code: SideChatErrorCode = message.includes('tool') || message.includes('factory')
-        ? 'compatibility'
-        : 'internal'
-      return failure(code, message)
+      const opening = openingFailure(error)
+      return failure(opening.code, opening.message)
     }
   }
 
   read(request: ReadSideChatRequest): ReadSideChatResult {
     const entry = this.byToken.get(request.chatToken)
-    if (entry === undefined || entry.closing || entry.handle === undefined) {
+    if (entry === undefined || entry.closing) {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
+    if (entry.openingError !== undefined) return { ok: false, error: entry.openingError }
     // Adaptive transcript reads are the client attachment heartbeat. Visible
     // drawers keep their child alive; parking stops reads and starts the lease.
     this.touch(entry)
@@ -301,9 +343,10 @@ export class SideChatService extends TypertRemoteService {
 
   async send(request: SendSideChatRequest): Promise<SendSideChatResult> {
     const entry = this.byToken.get(request.chatToken)
-    if (entry === undefined || entry.closing || entry.handle === undefined) {
+    if (entry === undefined || entry.closing) {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
+    if (entry.openingError !== undefined) return { ok: false, error: entry.openingError }
     const existing = entry.sentRequests.get(request.requestId)
     this.touch(entry)
     if (existing !== undefined) {
@@ -320,7 +363,14 @@ export class SideChatService extends TypertRemoteService {
     }
     const message = createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
     entry.sentRequests.set(request.requestId, String(message.id))
-    entry.handle.agent.followup(message)
+    const pending: PendingSideChatMessage = {
+      requestId: request.requestId,
+      message,
+      delivered: entry.handle !== undefined,
+      cancelled: false,
+    }
+    entry.pendingByRequest.set(request.requestId, pending)
+    entry.handle?.agent.followup(message)
     this.scheduleExpiry(entry)
     return {
       ok: true,
@@ -332,10 +382,14 @@ export class SideChatService extends TypertRemoteService {
 
   async cancel(request: CancelSideChatRequest): Promise<CancelSideChatResult> {
     const entry = this.byToken.get(request.chatToken)
-    if (entry === undefined || entry.closing || entry.handle === undefined) {
+    if (entry === undefined || entry.closing) {
       return { ok: false, error: { code: 'not-open', message: 'This Side Chat is no longer open.' } }
     }
-    entry.handle.agent.cancel({ kind: 'user' })
+    if (entry.handle === undefined) {
+      for (const pending of entry.pendingByRequest.values()) pending.cancelled = true
+    } else {
+      entry.handle.agent.cancel({ kind: 'user' })
+    }
     this.touch(entry)
     return { ok: true, value: { chatToken: request.chatToken, accepted: true } }
   }
