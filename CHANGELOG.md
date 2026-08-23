@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Make the Side Chat composer interactive immediately while completed parent context is prepared silently in the background.
+- Accept and retain the first message before child creation finishes, then deliver it exactly once after the Side Chat boundary.
+- Respect Better Sidebar's requested icon size so the Side Chat mark matches native cards and tabs.
+
 ## 0.3.0
 
 - Integrate Better Sidebar native tabs automatically when available, while keeping the collision-aware overlay drawer as the optional-integration fallback.

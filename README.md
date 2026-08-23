@@ -75,7 +75,7 @@ pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-chat
 
 1. Finish at least one turn in a normal parent conversation.
 2. Select **Side Chat** in the conversation header, or press `Cmd/Ctrl + Shift + .`.
-3. Ask a focused side question. The drawer can inspect inherited context and read-only resources. Its placement adapts without remounting when panels or the viewport change.
+3. Ask a focused side question. The composer is available immediately while completed parent context is prepared silently in the background; sending at once is accepted immediately, though the first response may take slightly longer. The drawer can inspect inherited context and read-only resources, and adapts without remounting when panels or the viewport change.
 4. Switch tasks freely: the drawer is parked by parent and reappears with its transcript when you return.
 5. Use Minimize, Escape, the native tab close, the header action, or `Cmd/Ctrl + Shift + .` to hide Side Chat without losing its transcript or draft. To end it, choose the internal **End** control and confirm.
 
