@@ -20,9 +20,9 @@ const execFileAsync = promisify(execFile)
 
 const COMMITTED_RENDERER_OUTPUTS = {
   'brand-board.png': '5be91de0df71fb871af75546b7bfd9e2c4f5ee90a336b556fc4124675fe41a8f',
-  'hero-dark.png': '3e1b73a4d5ee6839a32c520f260c3c74de31175169077468160bdaf5a7aa14dd',
-  'hero.png': '3e1b73a4d5ee6839a32c520f260c3c74de31175169077468160bdaf5a7aa14dd',
-  'social-card.png': '8d3b82abc08bc02d1134de47167648cdde2092eb6acfa5829a5280d588f7010b',
+  'hero-dark.png': '3c3f3689a570cb959076b7a262f2980d10b42b4b92ae363282f892848fdc9836',
+  'hero.png': '3c3f3689a570cb959076b7a262f2980d10b42b4b92ae363282f892848fdc9836',
+  'social-card.png': '41475d4cfd7092ab5696025dbe3d5911d0745b2edfcde30de57789ccaac61278',
   'installed-overview-en.png': '98cff9551ac0d77f63f1ed36d7842f31e23aa4802478e9fae0eb29e0a6fb2a5c',
   'installed.png': '98cff9551ac0d77f63f1ed36d7842f31e23aa4802478e9fae0eb29e0a6fb2a5c',
   'concept-surface.png': '03be2224d73d2db2ee5ae40d02cfed00088d73a495e87de7dd0022212a26de73',
@@ -107,6 +107,30 @@ describe('Parallel Side Branch sign contract', () => {
     expect(renderer).toContain('draw_sign(draw, 100, 165, 120, INK)')
     expect(heroAlias.equals(hero)).toBe(true)
     expect(overviewAlias.equals(overview)).toBe(true)
+  })
+
+  it('keeps first-screen discovery copy and the scoped install command aligned', async () => {
+    const [readme, readmeZh, renderer] = await Promise.all([
+      readFile(new URL('../README.md', import.meta.url), 'utf8'),
+      readFile(new URL('../README.zh.md', import.meta.url), 'utf8'),
+      readFile(new URL('../scripts/render-brand-assets.py', import.meta.url), 'utf8'),
+    ])
+    const command = 'dsh plugin --profile web add @lukeknow0/dsh-side-chat'
+    const englishQuickInstall = readme.indexOf('## Quick install')
+    const chineseQuickInstall = readmeZh.indexOf('## 快速安装')
+
+    expect(readme).toContain('A read-only side chat plugin for DeepSeek Harness (DSH) — inherit completed context, ask temporary questions, and keep the parent agent running.')
+    expect(readmeZh).toContain('DeepSeek Harness（DSH）的只读侧边对话插件——继承已完成上下文，处理临时问题，同时保持父智能体继续运行。')
+    expect(englishQuickInstall).toBeGreaterThan(readme.indexOf('> **Ask aside. Stay on track.**'))
+    expect(englishQuickInstall).toBeLessThan(readme.indexOf('docs/assets/installed-overview-en.png'))
+    expect(chineseQuickInstall).toBeGreaterThan(readmeZh.indexOf('> **临时问一句，主任务不跑偏。**'))
+    expect(chineseQuickInstall).toBeLessThan(readmeZh.indexOf('docs/assets/installed-overview-en.png'))
+    expect(readme).toContain('If Side Chat helps you stay focused, consider giving the project a ⭐ — it helps more DSH users find it.')
+    expect(readmeZh).toContain('如果 Side Chat 能让你的主任务保持专注，欢迎点一个 ⭐；这会帮助更多 DSH 用户发现它。')
+    expect(readme).toContain(command)
+    expect(readmeZh).toContain(command)
+    expect(renderer).toContain(`"$  ${command}"`)
+    expect(renderer).not.toContain('"$  dsh plugin --profile web add dsh-side-chat"')
   })
 
   it('patches every embedded raster sign before derivatives are cropped', async () => {

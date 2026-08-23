@@ -5,7 +5,7 @@
 <h1 align="center">dsh-side-chat</h1>
 
 <p align="center">
-  为 DeepSeek Harness 提供 Codex 风格的临时侧边对话。
+  DeepSeek Harness（DSH）的只读侧边对话插件——继承已完成上下文，处理临时问题，同时保持父智能体继续运行。
 </p>
 
 <p align="center">
@@ -20,9 +20,19 @@
 
 > **临时问一句，主任务不跑偏。** 打开继承父会话已完成上下文的侧栏，处理一个临时问题；关闭后，这段问答不会被写回主会话。
 
+## 快速安装
+
+```bash
+dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```
+
+安装后重启正在运行的 `dsh web` 进程，再刷新现有 Harness 页面。
+
 <p align="center">
   <img src="docs/assets/installed-overview-en.png" alt="Side Chat 安装到 DeepSeek Harness 后的界面" width="92%" />
 </p>
+
+_如果 Side Chat 能让你的主任务保持专注，欢迎点一个 ⭐；这会帮助更多 DSH 用户发现它。_
 
 ## 为什么需要 Side Chat？
 
