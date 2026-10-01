@@ -35,7 +35,7 @@
   "test": "node --test tests/*.test.mjs && pnpm --dir packages/dsh-sidechat test",
   "typecheck": "pnpm --dir packages/dsh-sidechat run typecheck",
   "build": "pnpm --dir packages/dsh-sidechat run build",
-  "check": "pnpm run typecheck && pnpm run build && pnpm test",
+  "check": "pnpm run build && pnpm test",
   "pack:release": "pnpm --dir packages/dsh-sidechat pack --pack-destination ../../artifacts",
   "verify:package": "node scripts/check-package.mjs artifacts/lukeknow0-dsh-side-chat-1.0.0-rc.1.tgz"
 }
@@ -79,6 +79,8 @@ Run: `node --test tests/release-contract.test.mjs`; expected assertion failure f
 - [ ] Add CI jobs on Linux/macOS and Node 22.20/24: frozen install, `pnpm run check`, `pnpm run pack:release`, `pnpm run verify:package`.
 - [ ] Artifact audit must verify package name/version, required export/type files, scoped Cordis package resolution, lazy-CJS loader ID and no external self-Remote; reject unsafe archive paths, profiles, credentials and machine-specific source paths.
 - [ ] Run the entire batch once: typecheck, build, all tests, pack/audit and `git diff --check`. Investigate failures before rerunning affected gates.
+
+Clean-checkout correction: Client self-imports consume the generated Remote declaration augmentation. Package `typecheck` must therefore run Host `tsc`, then Host `tsdown`/Typert generation, then Client `tsc`. Package `build` invokes that typecheck before Client bundling; root `check` invokes build and tests without repeating generation. A regression test covers this ordering. The workspace also includes Rolldown's official optional WASI architecture so a signed Node runtime can build using `NAPI_RS_FORCE_WASI=1` without changing code signatures or weakening the Host.
 - [ ] If available, install the `.tgz` into a disposable DSH 0.2.0-rc.2 profile without exemptions; preserve active profile and report runtime limits.
 - [ ] Write SHA-256 checksums from the exact final `.tgz` and release notes stating the evidence and remaining limits.
 

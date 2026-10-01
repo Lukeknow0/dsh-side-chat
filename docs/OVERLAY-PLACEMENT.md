@@ -1,4 +1,6 @@
-# Overlay placement architecture
+# Overlay placement architecture (legacy v0.4)
+
+> Historical overlay investigation. v1 uses native sidebar tabs and has no legacy overlay fallback; see the [migration guide](MIGRATION.md).
 
 ## Verified root cause
 

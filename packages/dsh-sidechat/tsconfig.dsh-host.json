@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "composite": true,
+    "useDefineForClassFields": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "src/index.ts",
+    "src/health.js",
+    "src/sidechat/**/*.ts",
+    "src/sidechat/**/*.js"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@deepseek-ai/dsh-typert-protocol",
+  "version": "0.1.7-rc.2",
+  "private": true,
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  }
+}

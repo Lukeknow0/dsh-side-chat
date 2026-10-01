@@ -1,209 +1,81 @@
-<p align="center">
-  <img src="docs/assets/hero-dark.png" alt="DSH Side Chat：临时问一句，主任务不跑偏" width="100%" />
-</p>
+# DSH Side Chat
 
-<h1 align="center">dsh-side-chat</h1>
+[English](README.md) · [简体中文](README.zh.md)
 
-<p align="center">
-  DeepSeek Harness（DSH）的只读侧边对话插件——继承已完成上下文，处理临时问题，同时保持父智能体继续运行。
-</p>
+DeepSeek Harness 原生右侧栏中的独立侧聊：每条侧聊拥有自己的标签页、草稿、消息流和子会话控制，不把临时追问混进主会话。
 
-<p align="center">
-  <a href="README.md">English</a> · <a href="README.zh.md">简体中文</a>
-</p>
+> **v1.0.0-rc.1 是架构重写的大版本预发布，不是稳定版升级。** 仅支持 **DSH `0.2.0-rc.2`**。Desktop 冷启动及与 Better Sidebar 共存尚未验证。本版通过 GitHub 提供可安装的 tarball，**没有发布到 npm**。替换 v0.4 前请先阅读[迁移说明](docs/MIGRATION.md)。
 
-<p align="center">
-  <img alt="MIT 许可证" src="https://img.shields.io/badge/license-MIT-B7E85B?style=flat-square&labelColor=0B0D0E" />
-  <img alt="DeepSeek Harness 0.1 rc.7+" src="https://img.shields.io/badge/DSH-0.1.0--rc.7%2B-F2F0E8?style=flat-square&labelColor=0B0D0E" />
-  <img alt="严格 TypeScript" src="https://img.shields.io/badge/TypeScript-strict-E9705B?style=flat-square&labelColor=0B0D0E" />
-</p>
+## 安装预发布版
 
-> **临时问一句，主任务不跑偏。** 打开继承父会话已完成上下文的侧栏，处理一个临时问题；关闭后，这段问答不会被写回主会话。
+在 [v1.0.0-rc.1 Release](https://github.com/Lukeknow0/dsh-side-chat/releases/tag/v1.0.0-rc.1) 下载 **`lukeknow0-dsh-side-chat-1.0.0-rc.1.tgz`** 和 **`SHA256SUMS`**，在下载目录校验：
 
-## 快速安装
-
-```bash
-dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```sh
+shasum -a 256 -c SHA256SUMS
 ```
 
-安装后重启正在运行的 `dsh web` 进程，再刷新现有 Harness 页面。
+请先使用一次性隔离配置测试。使用 DSH Web CLI 时，在独立终端执行：
 
-<p align="center">
-  <img src="docs/assets/installed-overview-en.png" alt="Side Chat 安装到 DeepSeek Harness 后的界面" width="92%" />
-</p>
-
-_如果 Side Chat 能让你的主任务保持专注，欢迎点一个 ⭐；这会帮助更多 DSH 用户发现它。_
-
-## 为什么需要 Side Chat？
-
-长时间的编码会话会持续积累决策、计划和进行中的工作。一个小问题也可能让主智能体偏离原有轨迹。Side Chat 把临时追问放进独立的子运行时，同时保持主会话可见、可运行、互不写入。
-
-- **自适应呈现：** 当 Better Sidebar 提供原生标签页能力时自动集成，但它是可选的；未安装 Better Sidebar 时，Side Chat 使用碰撞感知的覆盖层抽屉。
-- **碰撞感知抽屉回退：** 测量实际 AppFrame、原生侧栏/详情栏、同层插件和已标记 Portal 控件，不替换任何原生 single slot；并按空间选择完整右栏、紧凑右栏或底部抽屉。
-- **继承上下文：** 只复制到最近一次已完成的 `turn/end`，绝不继承半截运行中的回合。
-- **父会话独立：** 主会话继续运行；子会话不会向父会话回报，也不会追加 follow-up。
-- **默认只读：** 同时使用只读沙箱、禁止审批、模型可见工具白名单和执行时拒绝未知工具的守卫。
-- **非破坏性收起：** 收起、Escape、原生标签页关闭和显示快捷键都会保留对话记录与草稿；再次打开时恢复实时子会话。
-- **明确结束条件：** 内部 **结束** 操作需要确认；确认后立即移除可恢复性。否则，Host 只在父任务和子会话都空闲时才开始 30 分钟停放倒计时。
-- **实时消息流：** Host 只投影子会话本地消息，抽屉以 220–700 毫秒自适应刷新。
-- **中英文界面：** 自动跟随 Harness 当前语言。
-- **键盘入口：** 按 `Cmd/Ctrl + Shift + .` 打开或关闭。
-
-## 安装
-
-### 从 npm 安装
-
-```bash
-dsh plugin --profile web add @lukeknow0/dsh-side-chat
+```sh
+export DSH_HOME="$(mktemp -d)"
+dsh plugin --profile web add /absolute/path/lukeknow0-dsh-side-chat-1.0.0-rc.1.tgz
 ```
 
-### 从 GitHub 安装
+然后启动该隔离 Web 配置，使用它自己的正常认证流程；不要豁免版本限制。Desktop 配置由桌面应用的插件管理器管理，Web CLI 不能代管。决定安装到日常配置前请先备份，不能把 Web 检查等同于 Desktop 验收。
 
-```bash
-dsh plugin --profile web add github:Lukeknow0/dsh-side-chat
-```
+正式包名保持为 **`@lukeknow0/dsh-side-chat@1.0.0-rc.1`**。从 npm 安装包名，或直接把源码仓库根目录当插件安装，**不会**安装这个仅在 GitHub 分发的预发布版。
 
-安装后重启正在运行的 `dsh web` 进程，再刷新现有 Harness 页面。
+## 主要变化
 
-### 从本地源码安装
+- **原生多标签：** 使用右侧栏加号和“新建侧聊”指南打开独立空白页，可同时打开多条侧聊。
+- **延迟创建子会话：** 打开空白页不创建 Session；首次发送才创建。选择文件时会先创建上传回执所需的子会话，但不发送提示词。
+- **独立草稿与历史：** 每个标签只访问自己的子会话；从空白页重新打开已有侧聊。关闭标签不取消、不归档、不删除子会话。
+- **子会话控制：** 使用 Host 实时目录提供的模型/权限选项，处理侧聊自己的问题和审批，并可显式取消生成。
+- **Web 附件：** 按钮上传、拖放文件或粘贴剪贴板图片；显示进度，支持移除和重试。文件使用子会话专属上传回执，图片使用原生图片消息。支持只发送附件。
+- **不自动写回主会话：** 侧聊消息不会追加到父会话。切换模型不改写已有父 Session，但 Host 可能把成功选择保存为后续未显式配置的新会话默认值。
 
-```bash
+当前界面文案为中文。最多 10 个附件、每个 20 MB，Host 可能施加更严格的限制。未发送文件可在标签切换时保留在内存中，**刷新浏览器后不会保留**。批注和答案回流仍是开发内容，不属于本预发布版已验收的运行时功能。
+
+## 权限与数据保留
+
+**重写版不再是强制只读子智能体。** 它使用 Host 的子会话模型、权限预设和审批流程。发送前请检查侧聊当前权限；旧版固定工具白名单/执行拒绝守卫没有沿用。完整访问或自动权限预设需要走 Host 的风险确认路径。
+
+关闭标签是 UI 生命周期变化，不是数据擦除边界，不会结束子会话或删除持久历史。旧版停放 30 分钟自动过期逻辑已移除，旧版侧聊元数据不会自动导入。详见[安全说明](SECURITY.md)与[迁移说明](docs/MIGRATION.md)。
+
+## 兼容性与验证范围
+
+| 项目 | 本预发布版范围 |
+| --- | --- |
+| DeepSeek Harness | 仅 `0.2.0-rc.2` |
+| 插件 Node.js 运行时 | `>=22.19.0` |
+| 开发 / CI | Node `22.20.0` 或 `24`，pnpm `11.7.0` |
+| Client | DSH Web 原生右侧栏服务 |
+| Desktop 冷启动 / Better Sidebar 共存 | 尚未验证 |
+
+本次实际执行的检查见[发布验证记录](docs/RELEASE-VERIFICATION.md)。早期阶段文档、品牌图和旧版截图仅是历史资料，不代表本版运行时兼容性已经通过。
+
+## 从源码构建
+
+```sh
 git clone https://github.com/Lukeknow0/dsh-side-chat.git
 cd dsh-side-chat
-pnpm install
+git checkout v1.0.0-rc.1
+pnpm install --frozen-lockfile
 pnpm run check
-dsh plugin --profile web add .
+pnpm run pack:release
+pnpm run verify:package
 ```
 
-如果你直接从 DeepSeek Harness 源码仓库运行 CLI，可使用仓库脚本：
-
-```bash
-pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-chat
-```
-
-## 使用方法
-
-1. 在普通父会话中至少完成一轮对话。
-2. 点击会话标题栏中的 **Side Chat / 侧边对话**，或按 `Cmd/Ctrl + Shift + .`。
-3. 输入一个聚焦的临时问题。输入框会立即可用，父会话已完成上下文在后台静默准备；立刻发送的消息会被立即接收，但第一条回复可能稍慢。侧边智能体可以读取继承的上下文和只读资源；面板或窗口尺寸变化时，抽屉会在不重新挂载的情况下调整位置。
-4. 可以自由切换任务：抽屉会按父会话停放，返回时自动恢复原来的对话记录。
-5. 通过收起、Escape、原生标签页关闭、标题栏按钮或 `Cmd/Ctrl + Shift + .` 隐藏 Side Chat 时，对话记录和草稿都会保留。真正结束时，使用内部 **结束** 操作并确认。
-
-每个父会话同一时间保留一个 Side Chat。停放倒计时只会在父任务和子会话都空闲后开始；倒计时期间任一方重新活动时，下次两者再次空闲会重新开始完整的 30 分钟。隐藏会保留可恢复性；确认内部 **结束** 后会立即移除。页面重新加载后，只要租约仍有效，再次打开 Side Chat 便可重新接回 Host 中保留的对话。
-
-## 安全模型
-
-Side Chat 对子智能体叠加四层单调收紧的控制：
-
-| 层级 | 行为 |
-| --- | --- |
-| 分叉边界 | 只复制到最近已完成回合为止的平衡事件前缀 |
-| 策略覆盖 | 在继承种子之后追加 `sandboxMode: read-only` 与 `approvalPolicy: never` |
-| 工具可见性 | 仅展示父组合中确实存在的只读工具 |
-| 执行守卫 | 拒绝所有未知或非只读工具，包括 Code Mode 的嵌套分发 |
-
-执行守卫是最后一道权威边界。Harness 将来新增工具时，Side Chat 不会自动获得该能力。
-
-### 重要的清理语义说明
-
-**在 DSH 0.1.0-rc.7 中，“临时”不等于保证物理擦除。** 持久物理擦除仍受限于 DSH 公开的清理支持；该版本没有公开的持久会话日志删除 API。确认内部 **结束** 或空闲超时后，本插件会：
-
-1. 先撤销客户端入口并忽略所有晚到回调；
-2. 中止尚未完成的创建，或取消正在运行的生成；
-3. 释放实时 `AgentHandle`，把子会话从活动运行时移除；
-4. 在公开归档服务可用时调用工作区归档 API。
-
-归档后的会话日志仍可能保留在磁盘上。本项目不会绕过公开 API 删除私有持久化文件，也不会依赖不稳定的内部存储路径。详见 [SECURITY.md](SECURITY.md)。
-
-## 工作原理
-
-```mermaid
-sequenceDiagram
-  participant U as 用户
-  participant D as 侧边抽屉
-  participant H as SideChatService
-  participant P as 父智能体
-  participant C as 子智能体
-
-  U->>D: 打开 Side Chat
-  D->>H: start(parentId, chatToken)
-  H->>P: 读取已完成回合前缀
-  H->>C: 创建隐藏的只读子会话
-  H-->>D: 返回 childId 与 seedLength
-  loop 抽屉保持打开
-    D->>H: read(chatToken)
-    H-->>D: 仅含子会话本地消息的快照
-  end
-  U->>D: 输入临时问题
-  D->>H: send(chatToken, question)
-  H->>C: Agent.followup(message)
-  Note over P,C: 父子会话独立运行
-  U->>D: 切换父任务
-  D->>D: 按父会话停放抽屉状态
-  Note over D,H: 仅父任务和子会话均空闲后开始倒计时；活动会重置为 30 分钟
-  U->>D: 返回父任务并恢复记录
-  U->>D: 确认内部结束
-  D->>H: close(chatToken)
-  H->>C: 中止、取消、释放、归档
-```
-
-子会话使用 `origin: subagent` 标记，但刻意不写入持久 `parentSession` 目录关联，因此既不会出现在工作区树，也不会残留在父会话的子代理目录中；抽屉持有不透明 token 期间，只有 Host 拥有提交问题的权限。
-
-## 兼容性
-
-| 组件 | 支持范围 |
-| --- | --- |
-| DeepSeek Harness | `>=0.1.0-rc.7 <0.2.0` |
-| Node.js | `^22.19.0 || >=24.0.0` |
-| 浏览器 | DSH Web 支持的当前 Chromium、Safari、Firefox |
-| 开发包管理器 | pnpm 11.7 |
-
-开发依赖使用一致的 rc.8 包集合，公开 peer 范围则包含 rc.7。本插件也会安装到本机 DSH 0.1.0-rc.7 源码环境并完成启动验证。目前已发布的若干 rc.7 包会通过 caret peer 解析到 rc.8；在独立插件项目里强行把每个开发依赖都钉死到 rc.7，会产生重复类型宇宙，反而不等同于真实应用安装。
-
-## 开发
-
-```bash
-pnpm install
-pnpm run typecheck
-pnpm run test
-pnpm run build
-pnpm run smoke
-pnpm run check
-```
-
-`pnpm run check` 会依次执行 lint、三套严格 TypeScript 检查、单元测试、Host 与浏览器构建、运行时冒烟断言以及 publint。
-
-### 目录结构
+`check` 执行 Host/Client 类型检查，构建 Typert 生成接口和 lazy-CJS 浏览器包，再运行工作区与插件测试；`pack:release` 将版本化安装包写入 `artifacts/`；`verify:package` 检查包身份、导出文件和模块加载连接。它们不会发布 npm，也不会安装到 DSH 配置中。Host/Remote 声明会在 Client 自引用类型检查之前生成，干净检出不依赖已有构建缓存。无法加载第三方原生扩展的签名托管 Node 可使用 `NAPI_RS_FORCE_WASI=1 pnpm run check`；工作区/锁文件已包含 Rolldown 官方可选 WASI 回退。
 
 ```text
-src/
-  host/                 Host 侧子会话生命周期
-  shared/               Zod 契约与工具策略
-  client/               抽屉、控制器、语言包、远程接口
-  remote-descriptors.ts Typert RPC 描述
-tests/                   边界、策略、契约与包结构测试
-docs/assets/             广告图和真实安装效果图
+packages/dsh-sidechat/  可安装插件、Host/Client 源码与测试
+packages/.codegen/     仅供 Typert 分析的类型声明
+tests/                 工作区、发布和安装包契约测试
+scripts/               安装包审计及保留的旧品牌图工具
+docs/                  迁移、验证与历史设计证据
 ```
 
-## 视觉系统
+[贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [MIT 许可证](LICENSE) · [第三方说明](THIRD_PARTY_NOTICES.md)
 
-品牌符号由两条平行轨道组成，其中一条短暂分叉，表达“问题暂时偏离，但主轨迹不被改变”。
-
-- 近黑：`#0B0D0E`
-- 暖白：`#F2F0E8`
-- 酸性薄荷绿：`#B7E85B`
-- 低饱和珊瑚红：`#E9705B`
-
-抽屉本身使用 DSH 官方设计 token 与基础组件，因此会跟随当前主题，同时保留薄荷绿分叉强调色。完整品牌板见 [`docs/assets/brand-board.png`](docs/assets/brand-board.png)。
-
-## 当前状态
-
-这是一个 MVP，公开 API 可能在 1.0 前调整。以下不变量不会轻易改变：安全的已完成回合分叉、禁止写入、不修改父会话、每个父会话只保留一个 Side Chat、非破坏性收起和恢复、需确认的内部结束，以及空闲超时后的清理。
-
-## 许可证与致谢
-
-MIT，详见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-架构调研参考了 MIT 许可的 [dsh-nested-followups](https://github.com/sluminositys/dsh-nested-followups) 以及 DeepSeek Harness 官方源码。本项目没有整文件搬运其源代码。
-
-DeepSeek Harness 与 Codex 商标归各自所有者。本项目与 DeepSeek、OpenAI 均无隶属关系。
+这是独立重写，不修改 Better Sidebar，不复制 `dsh-sidenote` 源码。DeepSeek Harness、Codex 商标归各自所有者；本项目与 DeepSeek、OpenAI 无隶属关系。

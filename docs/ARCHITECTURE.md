@@ -1,4 +1,6 @@
-# Architecture
+# Architecture (legacy v0.4)
+
+> Historical architecture of the preserved v0.4 implementation. This is not the v1 rewrite's contract; see the [v1 migration guide](MIGRATION.md).
 
 ## Product boundary
 

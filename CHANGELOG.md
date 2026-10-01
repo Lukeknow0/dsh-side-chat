@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-rc.1 — 2026-10-01
+
+Major rewrite prerelease for DSH `0.2.0-rc.2`. Distributed as a GitHub Release tarball; not published to npm.
+
+- Replace the legacy overlay/lease implementation with one native right-sidebar tab per child conversation, independent drafts, reopenable history and child-only transcript routing.
+- Add Host catalog-backed model/permission controls, child-owned questions/approvals and explicit generation cancellation.
+- Add child-session file upload receipts, image attachments, drag-and-drop and clipboard-image paste, with upload progress, removal and retry.
+- Retain the published package identity `@lukeknow0/dsh-side-chat`; import the independent rewrite as new commits while preserving previous releases and Git history.
+- Add a self-contained source workspace, package identity regressions, build/package checks and CI on Linux/macOS.
+
+**Breaking changes:** requires DSH `0.2.0-rc.2`; no legacy overlay fallback, 30-minute parked expiry or automatic legacy metadata migration. Child capabilities follow Host permission controls: this rewrite is **not** the legacy always-read-only agent. Closing a tab does not cancel, archive or delete its Session. Interface copy is currently Chinese. Annotations/answer return remain development-only. Desktop cold-start and Better Sidebar coexistence remain unverified; use an isolated profile first. See [migration notes](docs/MIGRATION.md).
+
 ## 0.4.0
 
 - Make the Side Chat composer interactive immediately while completed parent context is prepared silently in the background.

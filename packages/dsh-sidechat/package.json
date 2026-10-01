@@ -1,0 +1,119 @@
+{
+  "name": "@lukeknow0/dsh-side-chat",
+  "version": "1.0.0-rc.1",
+  "description": "Native independent side conversations for DeepSeek Harness 0.2",
+  "license": "MIT",
+  "author": "Lukeknow0 and contributors",
+  "keywords": ["dsh-plugin", "deepseek-harness", "side-chat", "conversation", "context-isolation"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lukeknow0/dsh-side-chat.git",
+    "directory": "packages/dsh-sidechat"
+  },
+  "homepage": "https://github.com/Lukeknow0/dsh-side-chat#readme",
+  "bugs": { "url": "https://github.com/Lukeknow0/dsh-side-chat/issues" },
+  "type": "module",
+  "main": "lib/index.mjs",
+  "types": "lib/types/index.d.ts",
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": "0.2.0-rc.2"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.mjs"
+    },
+    "./types": {
+      "types": "./lib/types/sidechat/types.d.ts"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    }
+  },
+  "files": [
+    "lib/index.mjs",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "MIGRATION.md",
+    "SECURITY.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-file-upload"
+      ],
+      "external": [
+        "@deepseek-ai/dsh-api-gateway/client",
+        "react",
+        "react/jsx-runtime",
+        "react-dom",
+        "react-dom/client"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs tests/host/*.spec.mjs tests/client/*.spec.mjs",
+    "typecheck": "tsc -b ../../tsconfig.host.json --pretty false && tsdown --config tsdown.config.ts && tsc -p tsconfig.dsh-client.json",
+    "build": "pnpm run typecheck && tsdown --config tsdown.client.config.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-storage-domain": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-api-gateway": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-remotes": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-storage-domain": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-generator": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "@types/react-test-renderer": "^18.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-test-renderer": "^18.2.0",
+    "tsdown": "^0.20.1",
+    "typescript": "^6.0.3"
+  }
+}

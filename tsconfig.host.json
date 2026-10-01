@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+    "paths": {
+      "@deepseek-ai/dsh-typert-protocol": [
+        "packages/.codegen/dsh-typert-protocol/index.d.ts"
+      ]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/.codegen/dsh-typert-protocol/tsconfig.codegen-host.json" },
+    { "path": "./packages/dsh-sidechat/tsconfig.dsh-host.json" }
+  ]
+}

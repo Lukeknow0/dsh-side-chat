@@ -1,5 +1,15 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": { "jsx": "react-jsx", "lib": ["ES2024", "DOM", "DOM.Iterable"] },
-  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/shared/**/*.ts", "src/remote-descriptors.ts"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/dsh-sidechat/tsconfig.dsh-client.json" }
+  ]
 }

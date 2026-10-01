@@ -1,5 +1,13 @@
 node_modules/
+lib/
+dist/
 coverage/
+playwright-report/
+test-results/
+artifacts/
+.verification/
+.superpowers/
+*.tgz
 *.tsbuildinfo
 *.log
 .DS_Store
